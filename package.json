@@ -17,8 +17,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc --build",
-    "test": "pnpm build && node --test dist/**/*.test.js"
+    "build": "tsc",
+    "test": "tsc && node --test dist/**/*.test.js",
+    "lint": "biome check --write"
   },
   "engines": {
     "node": ">=18.17"
