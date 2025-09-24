@@ -7,7 +7,6 @@ export const WHOIS_TLD_EXCEPTIONS = {
   org: "whois.publicinterestregistry.org", // PIR
   biz: "whois.nic.biz",
   name: "whois.nic.name",
-  cat: "whois.nic.cat",
   edu: "whois.educause.edu",
   gov: "whois.nic.gov", // was whois.dotgov.gov
 

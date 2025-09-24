@@ -2,7 +2,13 @@
   "name": "rdapper",
   "version": "0.0.0-beta.1",
   "license": "MIT",
-  "description": "Fetch and parse domain registration data via RDAP with WHOIS fallback.",
+  "description": "🎩 RDAP/WHOIS fetcher, parser, and normalizer for Node",
+  "repository": "jakejarvis/rdapper",
+  "author": {
+    "name": "Jake Jarvis",
+    "email": "jake@jarv.is",
+    "url": "https://jarv.is"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,8 +38,16 @@
     "@types/psl": "1.1.3",
     "typescript": "5.9.2"
   },
-
   "engines": {
     "node": ">=18.17"
-  }
+  },
+  "keywords": [
+    "rdap",
+    "whois",
+    "domain",
+    "registration",
+    "lookup",
+    "parser",
+    "normalizer"
+  ]
 }
