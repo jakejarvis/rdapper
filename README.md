@@ -1,19 +1,14 @@
 # rdapper
-🤵Domain RDAP/WHOIS fetched and parser for Node
-rdapper
-========
 
-Fetch and parse domain registration data with RDAP-first and WHOIS fallback. Node 18+.
+🤵 Fetch and parse domain registration data using RDAP and falling back to WHOIS.
 
-Install
--------
+## Install
 
 ```bash
-pnpm add rdapper
+npm install rdapper
 ```
 
-Usage
------
+## Usage
 
 ```ts
 import { lookupDomain } from "rdapper";
@@ -27,8 +22,12 @@ if (!ok) throw new Error(error);
 console.log(record);
 ```
 
-Notes
------
+## Notes
+
 - Uses IANA RDAP bootstrap and RDAP JSON when available; falls back to WHOIS.
 - Standardized output regardless of source.
 - No external HTTP client deps; relies on global fetch. WHOIS uses TCP 43.
+
+## License
+
+[MIT](LICENSE)

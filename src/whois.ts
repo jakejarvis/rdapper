@@ -2,7 +2,6 @@ import { createConnection } from "node:net";
 import { DEFAULT_TIMEOUT_MS } from "./config.js";
 import type { LookupOptions } from "./types.js";
 import { withTimeout } from "./utils.js";
-import { WHOIS_FALLBACKS } from "./whois-fallbacks.js";
 
 export interface WhoisQueryResult {
   serverQueried: string;
@@ -73,6 +72,11 @@ export async function ianaWhoisServerForTld(
   tld: string,
   options?: LookupOptions,
 ): Promise<string | undefined> {
+  const EXCEPTIONS: Record<string, string> = {
+    com: "whois.verisign-grs.com",
+    net: "whois.verisign-grs.com",
+    org: "whois.pir.org",
+  };
   const url = `https://www.iana.org/domains/root/db/${encodeURIComponent(tld)}.html`;
   try {
     const res = await withTimeout(
@@ -86,14 +90,10 @@ export async function ianaWhoisServerForTld(
       html.match(/Whois Server:\s*([^<\n]+)/i);
     const server = m?.[1]?.trim();
     if (!server)
-      return (
-        WHOIS_FALLBACKS[tld.toLowerCase()] ?? `whois.nic.${tld.toLowerCase()}`
-      );
+      return EXCEPTIONS[tld.toLowerCase()] ?? `whois.nic.${tld.toLowerCase()}`;
     return server.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   } catch {
-    return (
-      WHOIS_FALLBACKS[tld.toLowerCase()] ?? `whois.nic.${tld.toLowerCase()}`
-    );
+    return EXCEPTIONS[tld.toLowerCase()] ?? `whois.nic.${tld.toLowerCase()}`;
   }
 }
 

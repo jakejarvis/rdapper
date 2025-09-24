@@ -1,3 +1,5 @@
+import psl from "psl";
+
 // Lightweight date parsing helpers to avoid external dependencies.
 // We aim to parse common RDAP and WHOIS date representations and return a UTC ISO string.
 export function toISO(
@@ -189,6 +191,19 @@ export function sleep(ms: number): Promise<void> {
 
 export function extractTld(domain: string): string {
   const lower = domain.trim().toLowerCase();
+  try {
+    const parsed = psl.parse?.(lower);
+    if (!("tld" in parsed)) {
+      return lower;
+    }
+    const suffix = parsed?.tld;
+    if (suffix) {
+      const labels = String(suffix).split(".").filter(Boolean);
+      if (labels.length) return labels[labels.length - 1];
+    }
+  } catch {
+    // ignore and fall back
+  }
   const parts = lower.split(".").filter(Boolean);
   return parts[parts.length - 1] ?? lower;
 }
