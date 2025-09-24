@@ -71,7 +71,7 @@ export interface DomainRecord {
   contacts?: Contact[];
   whoisServer?: string; // authoritative WHOIS queried (if any)
   rdapServers?: string[]; // RDAP base URLs tried
-  rawRdap?: any; // raw RDAP JSON
+  rawRdap?: unknown; // raw RDAP JSON
   rawWhois?: string; // raw WHOIS text (last authoritative)
   source: LookupSource; // which source produced data
   fetchedAt: string; // ISO 8601

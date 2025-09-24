@@ -4,7 +4,9 @@ import type {
   Nameserver,
   RegistrarInfo,
 } from "./types.js";
-import { toISO, uniq } from "./utils.js";
+import { asDateLike, asString, asStringArray, toISO, uniq } from "./utils.js";
+
+type RdapDoc = Record<string, unknown>;
 
 /**
  * Convert RDAP JSON into our normalized DomainRecord.
@@ -13,59 +15,83 @@ import { toISO, uniq } from "./utils.js";
 export function normalizeRdap(
   inputDomain: string,
   tld: string,
-  rdap: any,
+  rdap: unknown,
   rdapServersTried: string[],
   fetchedAtISO: string,
 ): DomainRecord {
+  const doc = (rdap ?? {}) as RdapDoc;
   // Safe helpers for optional fields
-  const get = (obj: any, path: string[]): any =>
-    path.reduce((o, k) => (o && k in o ? o[k] : undefined), obj);
+  const _get = (obj: unknown, path: string[]): unknown =>
+    path.reduce<unknown>(
+      (o, k) => ((o as RdapDoc)?.[k] as unknown) ?? undefined,
+      obj,
+    );
 
   // Prefer ldhName (punycode) and unicodeName if provided
   const ldhName: string | undefined =
-    rdap?.ldhName || rdap?.handle || undefined;
-  const unicodeName: string | undefined = rdap?.unicodeName || undefined;
+    asString(doc.ldhName) || asString(doc.handle);
+  const unicodeName: string | undefined = asString(doc.unicodeName);
 
   // Registrar entity can be provided with role "registrar"
-  const registrar: RegistrarInfo | undefined = extractRegistrar(rdap?.entities);
+  const registrar: RegistrarInfo | undefined = extractRegistrar(
+    doc.entities as unknown,
+  );
 
   // Nameservers: normalize host + IPs
-  const nameservers: Nameserver[] | undefined = Array.isArray(rdap?.nameservers)
-    ? rdap.nameservers
-        .map((ns: any) => ({
-          host: ns?.ldhName || ns?.unicodeName || "",
-          ipv4: get(ns, ["ipAddresses", "v4"]) || undefined,
-          ipv6: get(ns, ["ipAddresses", "v6"]) || undefined,
-        }))
-        .filter((n: Nameserver) => !!n.host)
+  const nameservers: Nameserver[] | undefined = Array.isArray(doc.nameservers)
+    ? (doc.nameservers as RdapDoc[])
+        .map((ns) => {
+          const host = (
+            asString(ns.ldhName) ??
+            asString(ns.unicodeName) ??
+            ""
+          ).toLowerCase();
+          const ip = ns.ipAddresses as RdapDoc | undefined;
+          const ipv4 = asStringArray(ip?.v4);
+          const ipv6 = asStringArray(ip?.v6);
+          const n: Nameserver = { host };
+          if (ipv4?.length) n.ipv4 = ipv4;
+          if (ipv6?.length) n.ipv6 = ipv6;
+          return n;
+        })
+        .filter((n) => !!n.host)
     : undefined;
 
   // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
-  const contacts: Contact[] | undefined = extractContacts(rdap?.entities);
+  const contacts: Contact[] | undefined = extractContacts(
+    doc.entities as unknown,
+  );
 
   // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
-  const statuses = Array.isArray(rdap?.status)
-    ? rdap.status.map((s: string) => ({ status: s, raw: s }))
+  const statuses = Array.isArray(doc.status)
+    ? (doc.status as unknown[])
+        .filter((s): s is string => typeof s === "string")
+        .map((s) => ({ status: s, raw: s }))
     : undefined;
 
   // Secure DNS info
-  const secureDNS = rdap?.secureDNS;
+  const secureDNS = doc.secureDNS as
+    | { delegationSigned?: unknown; dsData?: Array<Record<string, unknown>> }
+    | undefined;
   const dnssec = secureDNS
     ? {
         enabled: !!secureDNS.delegationSigned,
         dsRecords: Array.isArray(secureDNS.dsData)
-          ? secureDNS.dsData.map((d: any) => ({
-              keyTag: d.keyTag,
-              algorithm: d.algorithm,
-              digestType: d.digestType,
-              digest: d.digest,
+          ? (secureDNS.dsData as Array<Record<string, unknown>>).map((d) => ({
+              keyTag: d.keyTag as number | undefined,
+              algorithm: d.algorithm as number | undefined,
+              digestType: d.digestType as number | undefined,
+              digest: d.digest as string | undefined,
             }))
           : undefined,
       }
     : undefined;
 
   // RDAP "events" contain timestamps for registration, last changed, expiration, deletion, etc.
-  const events: any[] = Array.isArray(rdap?.events) ? rdap.events : [];
+  type RdapEvent = { eventAction?: string; eventDate?: string | number | Date };
+  const events: RdapEvent[] = Array.isArray(doc.events)
+    ? (doc.events as unknown[] as RdapEvent[])
+    : [];
   const byAction = (action: string) =>
     events.find(
       (e) =>
@@ -73,16 +99,19 @@ export function normalizeRdap(
         e.eventAction.toLowerCase().includes(action),
     );
   const creationDate = toISO(
-    byAction("registration")?.eventDate || rdap?.registrationDate,
+    asDateLike(byAction("registration")?.eventDate) ??
+      asDateLike(doc.registrationDate),
   );
   const updatedDate = toISO(
-    byAction("last changed")?.eventDate || rdap?.lastChangedDate,
+    asDateLike(byAction("last changed")?.eventDate) ??
+      asDateLike(doc.lastChangedDate),
   );
   const expirationDate = toISO(
-    byAction("expiration")?.eventDate || rdap?.expirationDate,
+    asDateLike(byAction("expiration")?.eventDate) ??
+      asDateLike(doc.expirationDate),
   );
   const deletionDate = toISO(
-    byAction("deletion")?.eventDate || rdap?.deletionDate,
+    asDateLike(byAction("deletion")?.eventDate) ?? asDateLike(doc.deletionDate),
   );
 
   // Derive a simple transfer lock flag from statuses
@@ -91,8 +120,7 @@ export function normalizeRdap(
   );
 
   // The RDAP document may include "port43" pointer to authoritative WHOIS
-  const whoisServer: string | undefined =
-    typeof rdap?.port43 === "string" ? rdap.port43 : undefined;
+  const whoisServer: string | undefined = asString(doc.port43);
 
   const record: DomainRecord = {
     domain: unicodeName || ldhName || inputDomain,
@@ -126,35 +154,42 @@ export function normalizeRdap(
   return record;
 }
 
-function extractRegistrar(
-  entities: any[] | undefined,
-): RegistrarInfo | undefined {
+function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
   if (!Array.isArray(entities)) return undefined;
   for (const ent of entities) {
-    const roles: string[] = Array.isArray(ent?.roles) ? ent.roles : [];
+    const roles: string[] = Array.isArray((ent as RdapDoc)?.roles)
+      ? ((ent as RdapDoc).roles as unknown[]).filter(
+          (r): r is string => typeof r === "string",
+        )
+      : [];
     if (!roles.some((r) => /registrar/i.test(r))) continue;
-    const v = parseVcard(ent?.vcardArray);
-    const ianaId = Array.isArray(ent?.publicIds)
-      ? ent.publicIds.find((id: any) => /iana\s*registrar\s*id/i.test(id?.type))
-          ?.identifier
+    const v = parseVcard((ent as RdapDoc)?.vcardArray);
+    const ianaId = Array.isArray((ent as RdapDoc)?.publicIds)
+      ? ((ent as RdapDoc).publicIds as Array<RdapDoc>).find((id) =>
+          /iana\s*registrar\s*id/i.test(String(id?.type)),
+        )?.identifier
       : undefined;
     return {
-      name: v.fn || v.org || ent?.handle || undefined,
-      ianaId: ianaId,
-      url: v.url,
-      email: v.email,
-      phone: v.tel,
+      name: v.fn || v.org || asString((ent as RdapDoc)?.handle) || undefined,
+      ianaId: asString(ianaId),
+      url: v.url ?? undefined,
+      email: v.email ?? undefined,
+      phone: v.tel ?? undefined,
     };
   }
   return undefined;
 }
 
-function extractContacts(entities: any[] | undefined): Contact[] | undefined {
+function extractContacts(entities: unknown): Contact[] | undefined {
   if (!Array.isArray(entities)) return undefined;
   const out: Contact[] = [];
   for (const ent of entities) {
-    const roles: string[] = Array.isArray(ent?.roles) ? ent.roles : [];
-    const v = parseVcard(ent?.vcardArray);
+    const roles: string[] = Array.isArray((ent as RdapDoc)?.roles)
+      ? ((ent as RdapDoc).roles as unknown[]).filter(
+          (r): r is string => typeof r === "string",
+        )
+      : [];
+    const v = parseVcard((ent as RdapDoc)?.vcardArray);
     const type = roles.find((r) =>
       /registrant|administrative|technical|billing|abuse|reseller/i.test(r),
     );
@@ -167,9 +202,7 @@ function extractContacts(entities: any[] | undefined): Contact[] | undefined {
       abuse: "abuse",
       reseller: "reseller",
     } as const;
-    const roleKey = (
-      type.toLowerCase() in map ? (map as any)[type.toLowerCase()] : "unknown"
-    ) as Contact["type"];
+    const roleKey = (map[type.toLowerCase()] ?? "unknown") as Contact["type"];
     out.push({
       type: roleKey,
       name: v.fn,
@@ -188,17 +221,34 @@ function extractContacts(entities: any[] | undefined): Contact[] | undefined {
   return out.length ? out : undefined;
 }
 
+interface ParsedVCard {
+  fn?: string;
+  org?: string;
+  email?: string;
+  tel?: string;
+  fax?: string;
+  url?: string;
+  street?: string[];
+  locality?: string;
+  region?: string;
+  postcode?: string;
+  country?: string;
+  countryCode?: string;
+}
+
 // Parse a minimal subset of vCard 4.0 arrays as used in RDAP "vcardArray" fields
-function parseVcard(vcardArray: any): Record<string, any> {
-  // vcardArray is typically ["vcard", [["version",{},"text","4.0"], ["fn",{},"text","Example"], ...]]
+function parseVcard(vcardArray: unknown): ParsedVCard {
+  // vcardArray is typically ["vcard", [["version",{} ,"text","4.0"], ["fn",{} ,"text","Example"], ...]]
   if (
     !Array.isArray(vcardArray) ||
     vcardArray[0] !== "vcard" ||
     !Array.isArray(vcardArray[1])
   )
     return {};
-  const entries: any[] = vcardArray[1];
-  const out: Record<string, any> = {};
+  const entries = vcardArray[1] as Array<
+    [string, Record<string, unknown>, string, unknown]
+  >;
+  const out: ParsedVCard = {};
   for (const e of entries) {
     const key = e?.[0];
     const _valueType = e?.[2];
@@ -206,30 +256,30 @@ function parseVcard(vcardArray: any): Record<string, any> {
     if (!key) continue;
     switch (String(key).toLowerCase()) {
       case "fn":
-        out.fn = value;
+        out.fn = asString(value);
         break;
       case "org":
-        out.org = Array.isArray(value) ? value.join(" ") : value;
+        out.org = Array.isArray(value)
+          ? value.map((x) => String(x)).join(" ")
+          : asString(value);
         break;
       case "email":
-        out.email = value;
+        out.email = asString(value);
         break;
       case "tel":
-        out.tel = value;
+        out.tel = asString(value);
         break;
       case "url":
-        out.url = value;
+        out.url = asString(value);
         break;
       case "adr": {
         // adr value is [postOfficeBox, extendedAddress, street, locality, region, postalCode, country]
         if (Array.isArray(value)) {
-          out.street = value[2]
-            ? String(value[2]).split(/\\n|,\s*/)
-            : undefined;
-          out.locality = value[3];
-          out.region = value[4];
-          out.postcode = value[5];
-          out.country = value[6];
+          out.street = value[2] ? String(value[2]).split(/\n|,\s*/) : undefined;
+          out.locality = asString(value[3]);
+          out.region = asString(value[4]);
+          out.postcode = asString(value[5]);
+          out.country = asString(value[6]);
         }
         break;
       }

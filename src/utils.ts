@@ -92,7 +92,7 @@ function parseWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined {
     const mon = monthMap[monStr.toLowerCase()];
     return new Date(Date.UTC(Number(yyyy), mon, Number(dd)));
   } catch {
-    return undefined;
+    // fall through to undefined
   }
   return undefined;
 }
@@ -171,11 +171,16 @@ export function withTimeout<T>(
   reason = "Timeout",
 ): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
-  let timer: any;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(reason)), timeoutMs);
   });
-  return Promise.race([promise.finally(() => clearTimeout(timer)), timeout]);
+  return Promise.race([
+    promise.finally(() => {
+      if (timer !== undefined) clearTimeout(timer);
+    }),
+    timeout,
+  ]);
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -190,4 +195,24 @@ export function extractTld(domain: string): string {
 
 export function isLikelyDomain(input: string): boolean {
   return /^[a-z0-9.-]+$/i.test(input) && input.includes(".");
+}
+
+export function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+export function asStringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value)
+    ? (value.filter((x) => typeof x === "string") as string[])
+    : undefined;
+}
+
+export function asDateLike(value: unknown): string | number | Date | undefined {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    value instanceof Date
+  )
+    return value;
+  return undefined;
 }

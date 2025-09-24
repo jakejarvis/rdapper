@@ -57,7 +57,7 @@ export async function fetchRdapDomain(
   domain: string,
   baseUrl: string,
   options?: LookupOptions,
-): Promise<{ url: string; json: any }> {
+): Promise<{ url: string; json: unknown }> {
   const url = new URL(
     `domain/${encodeURIComponent(domain)}`,
     baseUrl,

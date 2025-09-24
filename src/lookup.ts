@@ -22,7 +22,9 @@ export async function lookupDomain(
       return { ok: false, error: "Input does not look like a domain" };
     }
     const tld = extractTld(domain);
-    const now = toISO(new Date())!;
+    // Avoid non-null assertion: fallback to a stable ISO string if parsing ever fails
+    const now =
+      toISO(new Date()) ?? new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
     // If WHOIS-only, skip RDAP path
     if (!opts?.whoisOnly) {
@@ -77,7 +79,8 @@ export async function lookupDomain(
       now,
     );
     return { ok: true, record };
-  } catch (err: any) {
-    return { ok: false, error: String(err?.message || err) };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
   }
 }
