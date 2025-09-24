@@ -19,7 +19,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build": "npm run clean && tsc -p tsconfig.build.json",
-    "test": "tsc && node --test dist/**/*.test.js",
+    "test": "npm run clean && tsc -p tsconfig.json && node --test dist/**/*.test.js",
     "lint": "biome check --write",
     "prepublishOnly": "npm run build"
   },
