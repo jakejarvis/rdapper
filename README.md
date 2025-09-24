@@ -20,10 +20,7 @@ npm install rdapper
 ```ts
 import { lookupDomain } from "rdapper";
 
-const { ok, record, error } = await lookupDomain("example.com", {
-  timeoutMs: 15000,           // default 15000
-  followWhoisReferral: true,  // default true
-});
+const { ok, record, error } = await lookupDomain("example.com");
 
 if (!ok) throw new Error(error);
 console.log(record); // normalized DomainRecord
@@ -41,7 +38,7 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => false
 ## API
 
 - `lookupDomain(domain, options?) => Promise<LookupResult>`
-  - Tries RDAP first for the domain’s TLD; if unavailable or fails, falls back to WHOIS unless toggled off.
+  - Tries RDAP first if supported by the domain’s TLD; if unavailable or fails, falls back to WHOIS (unless toggled off).
   - Result is `{ ok: boolean, record?: DomainRecord, error?: string }`.
 - `isRegistered(domain, options?) => Promise<boolean>`
 - `isAvailable(domain, options?) => Promise<boolean>`
@@ -54,7 +51,7 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => false
 - `followWhoisReferral?: boolean` – Follow registrar referral from the TLD WHOIS (default `true`).
 - `customBootstrapUrl?: string` – Override RDAP bootstrap URL.
 - `whoisHints?: Record<string, string>` – Override/add authoritative WHOIS per TLD (keys are lowercase TLDs, values may include or omit `whois://`).
- - `includeRaw?: boolean` – Include `rawRdap`/`rawWhois` in the returned record (default `false`).
+- `includeRaw?: boolean` – Include `rawRdap`/`rawWhois` in the returned record (default `false`).
 - `signal?: AbortSignal` – Optional cancellation signal.
 
 ### `DomainRecord` schema
@@ -78,7 +75,11 @@ interface DomainRecord {
     phone?: string;
   };
   reseller?: string;
-  statuses?: Array<{ status: string; description?: string; raw?: string }>;
+  statuses?: Array<{
+    status: string;
+    description?: string;
+    raw?: string;
+  }>;
   creationDate?: string;      // ISO 8601 (UTC)
   updatedDate?: string;       // ISO 8601 (UTC)
   expirationDate?: string;    // ISO 8601 (UTC)
@@ -86,13 +87,31 @@ interface DomainRecord {
   transferLock?: boolean;     // derived from EPP statuses
   dnssec?: {
     enabled: boolean;
-    dsRecords?: Array<{ keyTag?: number; algorithm?: number; digestType?: number; digest?: string }>;
+    dsRecords?: Array<{
+      keyTag?: number;
+      algorithm?: number;
+      digestType?: number;
+      digest?: string;
+    }>;
   };
-  nameservers?: Array<{ host: string; ipv4?: string[]; ipv6?: string[] }>;
+  nameservers?: Array<{
+    host: string;
+    ipv4?: string[];
+    ipv6?: string[];
+  }>;
   contacts?: Array<{
     type: "registrant" | "admin" | "tech" | "billing" | "abuse" | "registrar" | "reseller" | "unknown";
-    name?: string; organization?: string; email?: string | string[]; phone?: string | string[]; fax?: string | string[];
-    street?: string[]; city?: string; state?: string; postalCode?: string; country?: string; countryCode?: string;
+    name?: string;
+    organization?: string;
+    email?: string | string[];
+    phone?: string | string[];
+    fax?: string | string[];
+    street?: string[];
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    countryCode?: string;
   }>;
   whoisServer?: string;       // authoritative WHOIS queried (if any)
   rdapServers?: string[];     // RDAP base URLs tried
