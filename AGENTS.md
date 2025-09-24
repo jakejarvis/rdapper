@@ -1,37 +1,39 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/api/`: Public lookup orchestration (`lookup.ts`).
-- `src/rdap/`: RDAP bootstrap, client, and normalization (`bootstrap.ts`, `client.ts`, `normalize.ts`).
-- `src/whois/`: WHOIS TCP client, discovery, referral, normalization, catalog.
-- `src/lib/`: Shared utilities (`dates.ts`, `async.ts`, `domain.ts`, `text.ts`).
-- `src/types.ts`: Public types. `src/index.ts` re-exports API and types.
-- Tests: per-module `__tests__/` folders with `*.test.ts` (e.g., `src/lib/__tests__/dates.test.ts`).
-- `dist/`: Build output (generated). Do not edit.
-- `cli.mjs`: Local CLI for manual checks.
+- Source: `src/` (entry: `src/index.ts`).
+- Protocol modules: `src/rdap/` and `src/whois/` (clients, normalize, helpers).
+- Utilities: `src/lib/`, shared types: `src/types.ts`.
+- Tests live beside code in `__tests__/` and use `*.test.ts`.
+- Built output: `dist/` (ESM + types). Quick CLI: `cli.mjs` for manual checks.
 
 ## Build, Test, and Development Commands
-- `npm run build`: Clean and compile with `tsc -p tsconfig.build.json` (excludes tests); outputs to `dist/`.
-- `npm test`: Compile tests, then run Node’s test runner on `dist/**/*.test.js`.
-- `npm run lint`: Biome format+lint with autofix per `biome.json`.
-- Example CLI: `npm run build && node cli.mjs example.com`.
+- `npm run build` — clean and compile TypeScript to `dist/`.
+- `npm test` — type-check, build, and run Node’s test runner on `dist/**/*.test.js`.
+- `npm run lint` — format and lint with Biome (auto-fixes).
+- Manual smoke: `node cli.mjs example.com` (after `npm run build`).
+- Network smoke tests (opt‑in): `SMOKE=1 npm test`.
 
 ## Coding Style & Naming Conventions
-- TypeScript strict; ES2022 ESM (`tsconfig.json`).
-- Biome-enforced: spaces indentation; double quotes; organized imports.
-- Filenames: kebab-case for modules (e.g., `normalize-rdap.ts`).
-- Identifiers: camelCase; avoid abbreviations; explicit return types for exported functions.
+- TypeScript strict, ESM (`module`/`moduleResolution: NodeNext`).
+- Formatting via Biome: spaces, 2‑space indent, double quotes.
+- Naming: functions/vars `camelCase`, types/interfaces `PascalCase`, constants `UPPER_SNAKE_CASE`.
+- Files: lowercase; tests in `__tests__/` with `*.test.ts`.
+- Prefer named exports; avoid default exports unless ergonomic.
 
 ## Testing Guidelines
-- Framework: Node `node:test`.
-- Tests live under `src/**/__tests__` and are deterministic/offline by default.
-- Smoke tests gated by `SMOKE=1` (e.g., `SMOKE=1 npm test`).
-- Run all tests: `npm test`.
+- Framework: Node `node:test` + `assert/strict`.
+- Unit tests must be deterministic and offline. Gate network tests behind `SMOKE=1`.
+- Place tests near the code (e.g., `src/whois/__tests__/normalize.test.ts`).
+- Run locally: `npm test`; for smoke: `SMOKE=1 npm test`.
 
 ## Commit & Pull Request Guidelines
-- Commits: imperative, concise summaries (e.g., “Refactor lookup: tighten error handling”).
-- PRs: include what/why, linked issues, and test notes; ensure `npm run lint && npm test` pass.
+- Commits: concise imperative subject (e.g., “Add WHOIS referral fallback”), with a brief “what/why” body.
+- Scope changes narrowly; keep diffs readable.
+- PRs: clear description, linked issues, test plan (commands + expected output), and any CLI screenshots/logs when relevant.
+- Required checks before PR: `npm run lint && npm test`.
 
-## Release & Security Notes
-- Publish only `dist/`; `prepublishOnly` runs the build. Tests are excluded via `tsconfig.build.json` and `files` in `package.json`.
-- Node >= 18.17 with global `fetch`. WHOIS uses TCP 43; be mindful of registry rate limits.
+## Security & Configuration Tips
+- Node `>= 18.17`. No external HTTP client; uses global `fetch` and TCP 43 for WHOIS.
+- Avoid hardcoding endpoints. Respect options: `timeoutMs`, `followWhoisReferral`, `rdapOnly`, `whoisOnly`.
+- Do not run network tests in CI by default; use `SMOKE=1` only when appropriate.

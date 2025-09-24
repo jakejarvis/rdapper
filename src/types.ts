@@ -87,7 +87,6 @@ export interface LookupOptions {
   customBootstrapUrl?: string; // override IANA bootstrap
   // WHOIS discovery and query tuning
   whoisHints?: Record<string, string>; // override/add authoritative WHOIS per TLD
-  maxWhoisHops?: number; // max referral hops to follow (default 2)
   signal?: AbortSignal;
 }
 
