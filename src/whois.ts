@@ -2,6 +2,7 @@ import { createConnection } from "node:net";
 import { DEFAULT_TIMEOUT_MS } from "./config.js";
 import type { LookupOptions } from "./types.js";
 import { withTimeout } from "./utils.js";
+import { WHOIS_FALLBACKS } from "./whois-fallbacks.js";
 
 export interface WhoisQueryResult {
   serverQueried: string;
@@ -84,10 +85,15 @@ export async function ianaWhoisServerForTld(
       html.match(/Whois Server:\s*<a[^>]*>([^<]+)<\/a>/i) ||
       html.match(/Whois Server:\s*([^<\n]+)/i);
     const server = m?.[1]?.trim();
-    if (!server) return undefined;
+    if (!server)
+      return (
+        WHOIS_FALLBACKS[tld.toLowerCase()] ?? `whois.nic.${tld.toLowerCase()}`
+      );
     return server.replace(/^https?:\/\//i, "").replace(/\/$/, "");
   } catch {
-    return undefined;
+    return (
+      WHOIS_FALLBACKS[tld.toLowerCase()] ?? `whois.nic.${tld.toLowerCase()}`
+    );
   }
 }
 
