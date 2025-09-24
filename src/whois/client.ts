@@ -1,6 +1,6 @@
 import { createConnection } from "node:net";
-import { DEFAULT_TIMEOUT_MS } from "../lib/constants.js";
 import { withTimeout } from "../lib/async.js";
+import { DEFAULT_TIMEOUT_MS } from "../lib/constants.js";
 import type { LookupOptions } from "../types.js";
 
 export interface WhoisQueryResult {

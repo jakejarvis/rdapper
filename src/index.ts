@@ -4,13 +4,13 @@ import { getRdapBaseUrlsForTld } from "./rdap/bootstrap.js";
 import { fetchRdapDomain } from "./rdap/client.js";
 import { normalizeRdap } from "./rdap/normalize.js";
 import type { DomainRecord, LookupOptions, LookupResult } from "./types.js";
-import { WHOIS_TLD_EXCEPTIONS } from "./whois/catalog.js";
 import { whoisQuery } from "./whois/client.js";
 import {
   extractWhoisReferral,
   ianaWhoisServerForTld,
 } from "./whois/discovery.js";
 import { normalizeWhois } from "./whois/normalize.js";
+import { WHOIS_TLD_EXCEPTIONS } from "./whois/servers.js";
 
 /**
  * High-level lookup that prefers RDAP and falls back to WHOIS.

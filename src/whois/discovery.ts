@@ -1,6 +1,6 @@
 import type { LookupOptions } from "../types.js";
-import { WHOIS_TLD_EXCEPTIONS } from "./catalog.js";
 import { whoisQuery } from "./client.js";
+import { WHOIS_TLD_EXCEPTIONS } from "./servers.js";
 
 /**
  * Best-effort discovery of the authoritative WHOIS server for a TLD via IANA root DB.
