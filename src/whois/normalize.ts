@@ -18,6 +18,7 @@ export function normalizeWhois(
   whoisText: string,
   whoisServer: string | undefined,
   fetchedAtISO: string,
+  includeRaw = false,
 ): DomainRecord {
   const map = parseKeyValueLines(whoisText);
 
@@ -151,7 +152,7 @@ export function normalizeWhois(
     whoisServer,
     rdapServers: undefined,
     rawRdap: undefined,
-    rawWhois: whoisText,
+    rawWhois: includeRaw ? whoisText : undefined,
     source: "whois",
     fetchedAt: fetchedAtISO,
     warnings: undefined,

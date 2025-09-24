@@ -19,6 +19,7 @@ export function normalizeRdap(
   rdap: unknown,
   rdapServersTried: string[],
   fetchedAtISO: string,
+  includeRaw = false,
 ): DomainRecord {
   const doc = (rdap ?? {}) as RdapDoc;
   // Safe helpers for optional fields
@@ -146,7 +147,7 @@ export function normalizeRdap(
     contacts,
     whoisServer,
     rdapServers: rdapServersTried,
-    rawRdap: rdap,
+    rawRdap: includeRaw ? rdap : undefined,
     rawWhois: undefined,
     source: "rdap",
     fetchedAt: fetchedAtISO,

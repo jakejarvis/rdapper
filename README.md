@@ -54,6 +54,7 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => false
 - `followWhoisReferral?: boolean` – Follow registrar referral from the TLD WHOIS (default `true`).
 - `customBootstrapUrl?: string` – Override RDAP bootstrap URL.
 - `whoisHints?: Record<string, string>` – Override/add authoritative WHOIS per TLD (keys are lowercase TLDs, values may include or omit `whois://`).
+ - `includeRaw?: boolean` – Include `rawRdap`/`rawWhois` in the returned record (default `false`).
 - `signal?: AbortSignal` – Optional cancellation signal.
 
 ### `DomainRecord` schema
@@ -95,8 +96,8 @@ interface DomainRecord {
   }>;
   whoisServer?: string;       // authoritative WHOIS queried (if any)
   rdapServers?: string[];     // RDAP base URLs tried
-  rawRdap?: unknown;          // raw RDAP JSON (RDAP source)
-  rawWhois?: string;          // raw WHOIS text (WHOIS source)
+  rawRdap?: unknown;          // raw RDAP JSON (only when options.includeRaw)
+  rawWhois?: string;          // raw WHOIS text (only when options.includeRaw)
   source: "rdap" | "whois";   // which path produced data
   fetchedAt: string;          // ISO 8601 timestamp
   warnings?: string[];

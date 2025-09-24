@@ -2,9 +2,9 @@
 
 // Quick informal test runner for rdapper
 // Usage:
-//   npm run build && node dev.mjs example.com
+//   npm run build && node cli.mjs example.com
 // Env:
-//   RDAP_ONLY=1 | WHOIS_ONLY=1 | TIMEOUT_MS=15000 | FOLLOW_REFERRAL=0
+//   RDAP_ONLY=1 | WHOIS_ONLY=1 | TIMEOUT_MS=15000 | FOLLOW_REFERRAL=0 | INCLUDE_RAW=1
 
 import { lookupDomain } from "./dist/index.js";
 
@@ -15,6 +15,7 @@ const options = {
   followWhoisReferral: process.env.FOLLOW_REFERRAL !== "0",
   rdapOnly: process.env.RDAP_ONLY === "1",
   whoisOnly: process.env.WHOIS_ONLY === "1",
+  includeRaw: process.env.INCLUDE_RAW === "1",
 };
 
 const result = await lookupDomain(domain, options);

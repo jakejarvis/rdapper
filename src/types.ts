@@ -87,6 +87,7 @@ export interface LookupOptions {
   customBootstrapUrl?: string; // override IANA bootstrap
   // WHOIS discovery and query tuning
   whoisHints?: Record<string, string>; // override/add authoritative WHOIS per TLD
+  includeRaw?: boolean; // include rawRdap/rawWhois in results (default false)
   signal?: AbortSignal;
 }
 

@@ -43,6 +43,7 @@ export async function lookupDomain(
             json,
             tried,
             now,
+            !!opts?.includeRaw,
           );
           return { ok: true, record };
         } catch {
@@ -105,6 +106,7 @@ export async function lookupDomain(
       res.text,
       res.serverQueried,
       now,
+      !!opts?.includeRaw,
     );
     return { ok: true, record };
   } catch (err: unknown) {
