@@ -1,0 +1,1 @@
+{"root":["./src/config.ts","./src/index.ts","./src/lookup.smoke.test.ts","./src/lookup.ts","./src/normalize-rdap.test.ts","./src/normalize-rdap.ts","./src/normalize-whois.test.ts","./src/normalize-whois.ts","./src/rdap.ts","./src/types.d.ts","./src/utils.test.ts","./src/utils.ts","./src/whois.ts"],"version":"5.9.2"}
