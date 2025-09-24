@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { lookupDomain } from "../lookup.js";
+import { isAvailable, isRegistered, lookupDomain } from "../index.js";
 
 // Run only when SMOKE=1 to avoid flakiness and network in CI by default
 const shouldRun = process.env.SMOKE === "1";
@@ -124,3 +124,18 @@ for (const c of rdapCases) {
   assert.ok(ns.includes("ns2.digitalocean.com"));
   assert.ok(ns.includes("ns3.digitalocean.com"));
 });
+
+(shouldRun ? test : test.skip)(
+  "isRegistered true for example.com",
+  async () => {
+    assert.equal(await isRegistered("example.com", { timeoutMs: 15000 }), true);
+  },
+);
+
+(shouldRun ? test : test.skip)(
+  "isAvailable true for an unlikely .com",
+  async () => {
+    const unlikely = `nonexistent-${Date.now()}-smoke-example.com`;
+    assert.equal(await isAvailable(unlikely, { timeoutMs: 15000 }), true);
+  },
+);

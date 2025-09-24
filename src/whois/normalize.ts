@@ -1,4 +1,5 @@
 import { toISO } from "../lib/dates.js";
+import { isWhoisAvailable } from "../lib/domain.js";
 import { parseKeyValueLines, uniq } from "../lib/text.js";
 import type {
   Contact,
@@ -131,6 +132,7 @@ export function normalizeWhois(
   const record: DomainRecord = {
     domain,
     tld,
+    isRegistered: !isWhoisAvailable(whoisText),
     isIDN: /(^|\.)xn--/i.test(domain),
     unicodeName: undefined,
     punycodeName: undefined,

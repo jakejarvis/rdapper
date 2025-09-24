@@ -46,6 +46,7 @@ export interface StatusEvent {
 export interface DomainRecord {
   domain: string;
   tld: string;
+  isRegistered: boolean; // whether the domain appears registered
   isIDN?: boolean;
   unicodeName?: string;
   punycodeName?: string;

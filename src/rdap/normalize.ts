@@ -126,6 +126,7 @@ export function normalizeRdap(
   const record: DomainRecord = {
     domain: unicodeName || ldhName || inputDomain,
     tld,
+    isRegistered: true,
     isIDN: /(^|\.)xn--/i.test(ldhName || inputDomain),
     unicodeName: unicodeName || undefined,
     punycodeName: ldhName || undefined,
