@@ -1,4 +1,4 @@
-import { DEFAULT_TIMEOUT_MS } from "../config.js";
+import { DEFAULT_TIMEOUT_MS } from "../lib/constants.js";
 import { withTimeout } from "../lib/async.js";
 import type { LookupOptions } from "../types.js";
 
