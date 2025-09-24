@@ -1,18 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeWhois } from "./normalize-whois.js";
-
-function _runCase(label: string, tld: string, text: string) {
-  const rec = normalizeWhois(
-    `example.${tld}`,
-    tld,
-    text,
-    "whois.test",
-    "2025-01-01T00:00:00Z",
-  );
-  assert.equal(rec.tld, tld, label);
-  assert.equal(rec.source, "whois");
-}
+import { normalizeWhois } from "../normalize.js";
 
 test("WHOIS .de (DENIC-like) nserver lines", () => {
   const text = `

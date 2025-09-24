@@ -17,9 +17,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
     "test": "tsc && node --test dist/**/*.test.js",
-    "lint": "biome check --write"
+    "lint": "biome check --write",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "psl": "1.15.0"
@@ -30,6 +32,7 @@
     "@types/psl": "1.1.3",
     "typescript": "5.9.2"
   },
+
   "engines": {
     "node": ">=18.17"
   }

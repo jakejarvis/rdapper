@@ -1,2 +1,2 @@
-export * from "./lookup.js";
-// export * from "./types.js";
+export * from "./api/lookup.js";
+export type * from "./types.js";

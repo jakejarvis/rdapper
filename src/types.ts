@@ -84,6 +84,9 @@ export interface LookupOptions {
   whoisOnly?: boolean; // don't attempt RDAP
   followWhoisReferral?: boolean; // follow referral server (default true)
   customBootstrapUrl?: string; // override IANA bootstrap
+  // WHOIS discovery and query tuning
+  whoisHints?: Record<string, string>; // override/add authoritative WHOIS per TLD
+  maxWhoisHops?: number; // max referral hops to follow (default 2)
   signal?: AbortSignal;
 }
 

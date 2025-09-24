@@ -1,10 +1,11 @@
+import { toISO } from "../lib/dates.js";
+import { asDateLike, asString, asStringArray, uniq } from "../lib/text.js";
 import type {
   Contact,
   DomainRecord,
   Nameserver,
   RegistrarInfo,
-} from "./types.js";
-import { asDateLike, asString, asStringArray, toISO, uniq } from "./utils.js";
+} from "../types.js";
 
 type RdapDoc = Record<string, unknown>;
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeRdap } from "./normalize-rdap.js";
+import { normalizeRdap } from "../normalize.js";
 
 test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () => {
   const rdap = {

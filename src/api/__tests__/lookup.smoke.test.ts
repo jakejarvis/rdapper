@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { lookupDomain } from "./lookup.js";
+import { lookupDomain } from "../lookup.js";
 
 // Run only when SMOKE=1 to avoid flakiness and network in CI by default
 const shouldRun = process.env.SMOKE === "1";

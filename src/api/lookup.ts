@@ -1,13 +1,16 @@
-import { normalizeRdap } from "./normalize-rdap.js";
-import { normalizeWhois } from "./normalize-whois.js";
-import { fetchRdapDomain, getRdapBaseUrlsForTld } from "./rdap.js";
-import type { DomainRecord, LookupOptions, LookupResult } from "./types.js";
-import { getDomainParts, isLikelyDomain, toISO } from "./utils.js";
+import { toISO } from "../lib/dates.js";
+import { getDomainParts, isLikelyDomain } from "../lib/domain.js";
+import { getRdapBaseUrlsForTld } from "../rdap/bootstrap.js";
+import { fetchRdapDomain } from "../rdap/client.js";
+import { normalizeRdap } from "../rdap/normalize.js";
+import type { DomainRecord, LookupOptions, LookupResult } from "../types.js";
+import { WHOIS_TLD_EXCEPTIONS } from "../whois/catalog.js";
+import { whoisQuery } from "../whois/client.js";
 import {
   extractWhoisReferral,
   ianaWhoisServerForTld,
-  whoisQuery,
-} from "./whois.js";
+} from "../whois/discovery.js";
+import { normalizeWhois } from "../whois/normalize.js";
 
 /**
  * High-level lookup that prefers RDAP and falls back to WHOIS.
@@ -79,11 +82,11 @@ export async function lookupDomain(
       /no match|not found/i.test(res.text) &&
       opts?.followWhoisReferral !== false
     ) {
-      const candidates = [
-        `whois.nic.${publicSuffix.toLowerCase()}`,
-        // Widely used by many second-level public suffix registries
-        "whois.centralnic.com",
-      ];
+      const candidates: string[] = [];
+      const ps = publicSuffix.toLowerCase();
+      // Prefer explicit exceptions when known
+      const exception = WHOIS_TLD_EXCEPTIONS[ps];
+      if (exception) candidates.push(exception);
       for (const server of candidates) {
         try {
           const alt = await whoisQuery(server, domain, opts);
