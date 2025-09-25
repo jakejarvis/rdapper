@@ -7,7 +7,7 @@ RDAP‑first domain registration lookups with WHOIS fallback. Produces a single,
 - Normalized output: registrar, contacts, nameservers, statuses, dates, DNSSEC, source metadata
 - TypeScript types included; ESM‑only; no external HTTP client (uses global `fetch`)
 
-Requirements: Node >= 18.17 (global `fetch`). WHOIS uses TCP port 43.
+### [🦉 See it in action on hoot.sh!](https://hoot.sh)
 
 ## Install
 
