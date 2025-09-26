@@ -155,9 +155,11 @@ Timeouts are enforced per request using a simple race against `timeoutMs` (defau
 ## Development
 
 - Build: `npm run build`
-- Test: `npm test`
+- Test: `npm test` (Vitest)
   - By default, tests are offline/deterministic.
-  - Smoke tests that hit the network are gated by `SMOKE=1`, e.g. `SMOKE=1 npm test`.
+  - Watch mode: `npm run test:watch`
+  - Coverage: `npm run test:coverage`
+  - Smoke tests that hit the network are gated by `SMOKE=1`, e.g. `SMOKE=1 npm run test:smoke`.
 - Lint/format: `npm run lint` (Biome)
 
 Project layout:

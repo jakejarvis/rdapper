@@ -1,8 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: this is fine for tests */
 
-import assert from "node:assert/strict";
-import test from "node:test";
-import { isAvailable, isRegistered, lookupDomain } from "../index.js";
+import { expect, test } from "vitest";
+import { isAvailable, isRegistered, lookupDomain } from "./index.js";
 
 // Run only when SMOKE=1 to avoid flakiness and network in CI by default
 const shouldRun = process.env.SMOKE === "1";
@@ -15,10 +14,12 @@ const shouldRun = process.env.SMOKE === "1";
       timeoutMs: 12000,
       followWhoisReferral: true,
     });
-    assert.equal(res.ok, true, res.error);
-    assert.ok(res.record?.domain);
-    assert.ok(res.record?.tld);
-    assert.ok(res.record?.source === "rdap" || res.record?.source === "whois");
+    expect(res.ok, res.error).toBe(true);
+    expect(Boolean(res.record?.domain)).toBe(true);
+    expect(Boolean(res.record?.tld)).toBe(true);
+    expect(
+      res.record?.source === "rdap" || res.record?.source === "whois",
+    ).toBe(true);
   },
 );
 
@@ -37,28 +38,28 @@ for (const c of rdapCases) {
         timeoutMs: 15000,
         rdapOnly: true,
       });
-      assert.equal(res.ok, true, res.error);
+      expect(res.ok, res.error).toBe(true);
       const rec = res.record!;
-      assert.equal(rec.tld, c.tld);
-      assert.equal(rec.source, "rdap");
+      expect(rec.tld).toBe(c.tld);
+      expect(rec.source).toBe("rdap");
       // Registrar ID is IANA (376) for example domains
-      assert.equal(rec.registrar?.ianaId, "376");
+      expect(rec.registrar?.ianaId).toBe("376");
       if (c.tld !== "org") {
         // .com/.net often include the IANA reserved name explicitly
-        assert.ok(
+        expect(
           (rec.registrar?.name || "")
             .toLowerCase()
             .includes("internet assigned numbers authority"),
-        );
+        ).toBe(true);
       }
       // IANA nameservers
       const ns = (rec.nameservers || []).map((n) => n.host.toLowerCase());
-      assert.ok(ns.includes("a.iana-servers.net"));
-      assert.ok(ns.includes("b.iana-servers.net"));
+      expect(ns.includes("a.iana-servers.net")).toBe(true);
+      expect(ns.includes("b.iana-servers.net")).toBe(true);
       if (c.expectDs) {
         // DS records typically present for .com/.net
-        assert.equal(rec.dnssec?.enabled, true);
-        assert.ok((rec.dnssec?.dsRecords || []).length > 0);
+        expect(rec.dnssec?.enabled).toBe(true);
+        expect((rec.dnssec?.dsRecords || []).length > 0).toBe(true);
       }
     },
   );
@@ -72,7 +73,7 @@ for (const c of rdapCases) {
       timeoutMs: 15000,
       rdapOnly: true,
     });
-    assert.equal(res.ok, false);
+    expect(res.ok).toBe(false);
   },
 );
 
@@ -85,18 +86,17 @@ for (const c of rdapCases) {
       whoisOnly: true,
       followWhoisReferral: true,
     });
-    assert.equal(res.ok, true, res.error);
-    assert.equal(res.record?.tld, "com");
-    assert.equal(res.record?.source, "whois");
+    expect(res.ok, res.error).toBe(true);
+    expect(res.record?.tld).toBe("com");
+    expect(res.record?.source).toBe("whois");
     // Invariants for example.com
-    assert.equal(
-      res.record?.whoisServer?.toLowerCase(),
+    expect(res.record?.whoisServer?.toLowerCase()).toBe(
       "whois.verisign-grs.com",
     );
-    assert.equal(res.record?.registrar?.ianaId, "376");
+    expect(res.record?.registrar?.ianaId).toBe("376");
     const ns = (res.record?.nameservers || []).map((n) => n.host.toLowerCase());
-    assert.ok(ns.includes("a.iana-servers.net"));
-    assert.ok(ns.includes("b.iana-servers.net"));
+    expect(ns.includes("a.iana-servers.net")).toBe(true);
+    expect(ns.includes("b.iana-servers.net")).toBe(true);
   },
 );
 
@@ -107,28 +107,30 @@ for (const c of rdapCases) {
     whoisOnly: true,
     followWhoisReferral: true,
   });
-  assert.equal(res.ok, true, res.error);
+  expect(res.ok, res.error).toBe(true);
   const rec = res.record!;
-  assert.equal(rec.tld, "io");
-  assert.equal(rec.source, "whois");
+  expect(rec.tld).toBe("io");
+  expect(rec.source).toBe("whois");
   // Accept either TLD WHOIS or registrar WHOIS as the final server
   const server = (rec.whoisServer || "").toLowerCase();
-  assert.ok(["whois.nic.io", "whois.namecheap.com"].includes(server));
+  expect(["whois.nic.io", "whois.namecheap.com"].includes(server)).toBe(true);
   // Registrar ID may only be present on registrar WHOIS responses
   if (rec.registrar?.ianaId) {
-    assert.equal(rec.registrar.ianaId, "1068");
+    expect(rec.registrar.ianaId).toBe("1068");
   }
   // Nameservers commonly set for example.io (DigitalOcean)
   const ns = (rec.nameservers || []).map((n) => n.host.toLowerCase());
-  assert.ok(ns.includes("ns1.digitalocean.com"));
-  assert.ok(ns.includes("ns2.digitalocean.com"));
-  assert.ok(ns.includes("ns3.digitalocean.com"));
+  expect(ns.includes("ns1.digitalocean.com")).toBe(true);
+  expect(ns.includes("ns2.digitalocean.com")).toBe(true);
+  expect(ns.includes("ns3.digitalocean.com")).toBe(true);
 });
 
 (shouldRun ? test : test.skip)(
   "isRegistered true for example.com",
   async () => {
-    assert.equal(await isRegistered("example.com", { timeoutMs: 15000 }), true);
+    await expect(
+      isRegistered("example.com", { timeoutMs: 15000 }),
+    ).resolves.toBe(true);
   },
 );
 
@@ -136,6 +138,8 @@ for (const c of rdapCases) {
   "isAvailable true for an unlikely .com",
   async () => {
     const unlikely = `nonexistent-${Date.now()}-smoke-example.com`;
-    assert.equal(await isAvailable(unlikely, { timeoutMs: 15000 }), true);
+    await expect(isAvailable(unlikely, { timeoutMs: 15000 })).resolves.toBe(
+      true,
+    );
   },
 );

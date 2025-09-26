@@ -1,6 +1,5 @@
-import assert from "node:assert/strict";
-import test from "node:test";
-import { normalizeWhois } from "../normalize.js";
+import { expect, test } from "vitest";
+import { normalizeWhois } from "./normalize.js";
 
 test("WHOIS .de (DENIC-like) nserver lines", () => {
   const text = `
@@ -17,8 +16,8 @@ Changed: 2020-01-02
     "whois.denic.de",
     "2025-01-01T00:00:00Z",
   );
-  assert.ok(rec.nameservers && rec.nameservers.length === 2);
-  assert.equal(rec.nameservers?.[0].host, "ns1.example.net");
+  expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
+  expect(rec.nameservers?.[0].host).toBe("ns1.example.net");
 });
 
 test("WHOIS .uk Nominet style", () => {
@@ -44,9 +43,9 @@ Name servers:
     "whois.nic.uk",
     "2025-01-01T00:00:00Z",
   );
-  assert.ok(rec.nameservers && rec.nameservers.length === 2);
-  assert.ok(rec.creationDate);
-  assert.ok(rec.expirationDate);
+  expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
+  expect(Boolean(rec.creationDate)).toBe(true);
+  expect(Boolean(rec.expirationDate)).toBe(true);
 });
 
 test("WHOIS .jp JPRS style privacy redacted", () => {
@@ -66,9 +65,9 @@ test("WHOIS .jp JPRS style privacy redacted", () => {
     "whois.jprs.jp",
     "2025-01-01T00:00:00Z",
   );
-  assert.ok(rec.creationDate);
-  assert.ok(rec.expirationDate);
-  assert.ok(rec.statuses);
+  expect(Boolean(rec.creationDate)).toBe(true);
+  expect(Boolean(rec.expirationDate)).toBe(true);
+  expect(Boolean(rec.statuses)).toBe(true);
 });
 
 test("WHOIS .io NIC.IO style", () => {
@@ -92,9 +91,9 @@ DNSSEC: unsigned
     "whois.nic.io",
     "2025-01-01T00:00:00Z",
   );
-  assert.ok(rec.creationDate);
-  assert.ok(rec.expirationDate);
-  assert.ok(rec.nameservers && rec.nameservers.length === 2);
+  expect(Boolean(rec.creationDate)).toBe(true);
+  expect(Boolean(rec.expirationDate)).toBe(true);
+  expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
 });
 
 test("Privacy redacted WHOIS normalizes without contacts", () => {
@@ -123,7 +122,7 @@ Domain Status: clientTransferProhibited https://icann.org/epp#clientTransferProh
     "whois.verisign-grs.com",
     "2025-01-01T00:00:00Z",
   );
-  assert.ok(rec.creationDate);
-  assert.ok(rec.expirationDate);
-  assert.equal(rec.source, "whois");
+  expect(Boolean(rec.creationDate)).toBe(true);
+  expect(Boolean(rec.expirationDate)).toBe(true);
+  expect(rec.source).toBe("whois");
 });
