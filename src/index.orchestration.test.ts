@@ -21,6 +21,11 @@ vi.mock("./whois/discovery.js", async () => {
   };
 });
 
+// Mock RDAP bootstrap to avoid network and provide a base URL
+vi.mock("./rdap/bootstrap.js", () => ({
+  getRdapBaseUrlsForTld: vi.fn(async () => ["https://rdap.example/"]),
+}));
+
 import { lookupDomain } from "./index.js";
 import * as rdapClient from "./rdap/client.js";
 import * as whoisClient from "./whois/client.js";

@@ -4,15 +4,14 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
-    exclude: ["dist/**", "node_modules/**", "**/*.smoke.test.ts"],
+    exclude: ["dist/**", "node_modules/**"],
     sequence: { hooks: "list" },
     globals: false,
-    testTimeout: 5000,
+    testTimeout: process.env.SMOKE === "1" ? 30000 : 5000,
     coverage: {
       provider: "v8",
       reportsDirectory: "coverage",
       reporter: ["text", "lcov"],
-      exclude: ["**/__tests__/**", "src/**/index.ts"],
     },
   },
 });

@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: this is fine for tests */
 
 import { expect, test } from "vitest";
-import { isAvailable, isRegistered, lookupDomain } from "../index.js";
+import { isAvailable, isRegistered, lookupDomain } from "./index.js";
 
 // Run only when SMOKE=1 to avoid flakiness and network in CI by default
 const shouldRun = process.env.SMOKE === "1";

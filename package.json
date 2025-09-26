@@ -29,9 +29,9 @@
     "clean": "rm -rf dist",
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "test": "npm run clean && tsc -p tsconfig.json && vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:smoke": "SMOKE=1 vitest run --include src/**/__tests__/**/*.smoke.test.ts",
+    "test:watch": "npm run clean && tsc -p tsconfig.json && vitest",
+    "test:coverage": "npm run clean && tsc -p tsconfig.json && vitest run --coverage",
+    "test:smoke": "SMOKE=1 npm run test",
     "lint": "biome check --write",
     "prepublishOnly": "npm run build"
   },
