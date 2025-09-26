@@ -1,13 +1,12 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { extractTld, isLikelyDomain } from "../domain.js";
 
 test("extractTld basic", () => {
-  assert.equal(extractTld("example.com"), "com");
-  assert.equal(extractTld("sub.example.co.uk"), "uk");
+  expect(extractTld("example.com")).toBe("com");
+  expect(extractTld("sub.example.co.uk")).toBe("uk");
 });
 
 test("isLikelyDomain", () => {
-  assert.equal(isLikelyDomain("example.com"), true);
-  assert.equal(isLikelyDomain("not a domain"), false);
+  expect(isLikelyDomain("example.com")).toBe(true);
+  expect(isLikelyDomain("not a domain")).toBe(false);
 });

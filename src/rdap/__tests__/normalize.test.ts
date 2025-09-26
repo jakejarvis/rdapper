@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { normalizeRdap } from "../normalize.js";
 
 test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () => {
@@ -67,17 +66,17 @@ test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () =
     ["https://rdap.example/"],
     "2025-01-01T00:00:00Z",
   );
-  assert.equal(rec.domain, "example.com");
-  assert.equal(rec.tld, "com");
-  assert.equal(rec.registrar?.name, "Registrar LLC");
-  assert.equal(rec.registrar?.ianaId, "9999");
-  assert.ok(rec.contacts && rec.contacts.length >= 3);
-  assert.ok(rec.nameservers && rec.nameservers.length === 2);
-  assert.equal(rec.nameservers?.[0].host, "ns1.example.com");
-  assert.ok(rec.dnssec?.enabled);
-  assert.equal(rec.creationDate, "2020-01-02T03:04:05Z");
-  assert.equal(rec.expirationDate, "2030-01-02T03:04:05Z");
-  assert.equal(rec.transferLock, true);
-  assert.equal(rec.whoisServer, "whois.example-registrar.test");
-  assert.equal(rec.source, "rdap");
+  expect(rec.domain).toBe("example.com");
+  expect(rec.tld).toBe("com");
+  expect(rec.registrar?.name).toBe("Registrar LLC");
+  expect(rec.registrar?.ianaId).toBe("9999");
+  expect(rec.contacts && rec.contacts.length >= 3).toBe(true);
+  expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
+  expect(rec.nameservers?.[0].host).toBe("ns1.example.com");
+  expect(rec.dnssec?.enabled).toBeTruthy();
+  expect(rec.creationDate).toBe("2020-01-02T03:04:05Z");
+  expect(rec.expirationDate).toBe("2030-01-02T03:04:05Z");
+  expect(rec.transferLock).toBe(true);
+  expect(rec.whoisServer).toBe("whois.example-registrar.test");
+  expect(rec.source).toBe("rdap");
 });
