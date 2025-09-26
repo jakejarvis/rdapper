@@ -8,6 +8,8 @@ import { whoisQuery } from "./whois/client.js";
 import {
   extractWhoisReferral,
   ianaWhoisServerForTld,
+  getIanaWhoisTextForTld,
+  parseIanaRegistrationInfoUrl,
 } from "./whois/discovery.js";
 import { normalizeWhois } from "./whois/normalize.js";
 import { WHOIS_TLD_EXCEPTIONS } from "./whois/servers.js";
@@ -54,7 +56,7 @@ export async function lookupDomain(
       if (opts?.rdapOnly) {
         return {
           ok: false,
-          error: "RDAP not available or failed for this TLD",
+          error: `RDAP not available or failed for TLD '${tld}'. Many TLDs do not publish RDAP; try WHOIS fallback (omit rdapOnly).`,
         };
       }
     }
@@ -62,7 +64,18 @@ export async function lookupDomain(
     // WHOIS fallback path
     const whoisServer = await ianaWhoisServerForTld(tld, opts);
     if (!whoisServer) {
-      return { ok: false, error: "No WHOIS server discovered for TLD" };
+      // Provide a clearer, actionable message
+      const ianaText = await getIanaWhoisTextForTld(tld, opts);
+      const regUrl = ianaText
+        ? parseIanaRegistrationInfoUrl(ianaText)
+        : undefined;
+      const hint = regUrl
+        ? ` See registration info at ${regUrl}.`
+        : "";
+      return {
+        ok: false,
+        error: `No WHOIS server discovered for TLD '${tld}'. This registry may not publish public WHOIS over port 43.${hint}`,
+      };
     }
     // Query the TLD server first; if it returns a referral, we follow it below.
     let res = await whoisQuery(whoisServer, domain, opts);
