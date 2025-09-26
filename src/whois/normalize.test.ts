@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { normalizeWhois } from "../normalize.js";
+import { normalizeWhois } from "./normalize.js";
 
 test("WHOIS .de (DENIC-like) nserver lines", () => {
   const text = `

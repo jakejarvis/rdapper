@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { normalizeRdap } from "../normalize.js";
+import { normalizeRdap } from "./normalize.js";
 
 test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () => {
   const rdap = {

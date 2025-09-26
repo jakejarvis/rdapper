@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { extractTld, isLikelyDomain } from "../domain.js";
+import { extractTld, isLikelyDomain } from "./domain.js";
 
 test("extractTld basic", () => {
   expect(extractTld("example.com")).toBe("com");

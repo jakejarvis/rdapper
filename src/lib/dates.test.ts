@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: this is fine for tests */
 
 import { expect, test } from "vitest";
-import { toISO } from "../dates.js";
+import { toISO } from "./dates.js";
 
 test("toISO parses ISO and common whois formats", () => {
   const iso = toISO("2023-01-02T03:04:05Z");
