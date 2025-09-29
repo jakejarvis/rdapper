@@ -1,12 +1,12 @@
-import { toISO } from "../lib/dates.js";
-import { isWhoisAvailable } from "../lib/domain.js";
-import { parseKeyValueLines, uniq } from "../lib/text.js";
+import { toISO } from "../lib/dates";
+import { isWhoisAvailable } from "../lib/domain";
+import { parseKeyValueLines, uniq } from "../lib/text";
 import type {
   Contact,
   DomainRecord,
   Nameserver,
   RegistrarInfo,
-} from "../types.js";
+} from "../types";
 
 /**
  * Convert raw WHOIS text into our normalized DomainRecord.

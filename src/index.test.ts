@@ -37,12 +37,12 @@ vi.mock("./lib/domain.js", async () => {
   };
 });
 
-import { lookupDomain } from "./index.js";
-import * as domain from "./lib/domain.js";
-import * as rdapClient from "./rdap/client.js";
-import type { WhoisQueryResult } from "./whois/client.js";
-import * as whoisClient from "./whois/client.js";
-import * as discovery from "./whois/discovery.js";
+import { lookupDomain } from ".";
+import * as domain from "./lib/domain";
+import * as rdapClient from "./rdap/client";
+import type { WhoisQueryResult } from "./whois/client";
+import * as whoisClient from "./whois/client";
+import * as discovery from "./whois/discovery";
 
 // 1) Orchestration tests (RDAP path, fallback, whoisOnly)
 describe("lookupDomain orchestration", () => {

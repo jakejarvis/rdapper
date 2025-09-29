@@ -1,11 +1,11 @@
-import { toISO } from "../lib/dates.js";
-import { asDateLike, asString, asStringArray, uniq } from "../lib/text.js";
+import { toISO } from "../lib/dates";
+import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
 import type {
   Contact,
   DomainRecord,
   Nameserver,
   RegistrarInfo,
-} from "../types.js";
+} from "../types";
 
 type RdapDoc = Record<string, unknown>;
 
@@ -22,12 +22,6 @@ export function normalizeRdap(
   includeRaw = false,
 ): DomainRecord {
   const doc = (rdap ?? {}) as RdapDoc;
-  // Safe helpers for optional fields
-  const _get = (obj: unknown, path: string[]): unknown =>
-    path.reduce<unknown>(
-      (o, k) => ((o as RdapDoc)?.[k] as unknown) ?? undefined,
-      obj,
-    );
 
   // Prefer ldhName (punycode) and unicodeName if provided
   const ldhName: string | undefined =
@@ -254,7 +248,6 @@ function parseVcard(vcardArray: unknown): ParsedVCard {
   const out: ParsedVCard = {};
   for (const e of entries) {
     const key = e?.[0];
-    const _valueType = e?.[2];
     const value = e?.[3];
     if (!key) continue;
     switch (String(key).toLowerCase()) {

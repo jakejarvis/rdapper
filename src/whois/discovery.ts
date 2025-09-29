@@ -1,6 +1,6 @@
-import type { LookupOptions } from "../types.js";
-import { whoisQuery } from "./client.js";
-import { WHOIS_TLD_EXCEPTIONS } from "./servers.js";
+import type { LookupOptions } from "../types";
+import { whoisQuery } from "./client";
+import { WHOIS_TLD_EXCEPTIONS } from "./servers";
 
 /**
  * Parse the IANA WHOIS response for a TLD and extract the WHOIS server
@@ -32,9 +32,7 @@ export function parseIanaWhoisServer(text: string): string | undefined {
  *   remarks: Registration information: http://example.tld
  *   url: https://registry.example
  */
-export function parseIanaRegistrationInfoUrl(
-  text: string,
-): string | undefined {
+export function parseIanaRegistrationInfoUrl(text: string): string | undefined {
   const lines = String(text).split(/\r?\n/);
   for (const raw of lines) {
     const line = raw.trim();

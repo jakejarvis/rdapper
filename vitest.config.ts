@@ -8,10 +8,5 @@ export default defineConfig({
     sequence: { hooks: "list" },
     globals: false,
     testTimeout: process.env.SMOKE === "1" ? 30000 : 5000,
-    coverage: {
-      provider: "v8",
-      reportsDirectory: "coverage",
-      reporter: ["text", "lcov"],
-    },
   },
 });

@@ -1,6 +1,6 @@
-import { withTimeout } from "../lib/async.js";
-import { DEFAULT_TIMEOUT_MS } from "../lib/constants.js";
-import type { LookupOptions } from "../types.js";
+import { withTimeout } from "../lib/async";
+import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import type { LookupOptions } from "../types";
 
 // Use global fetch (Node 18+). For large JSON we keep it simple.
 

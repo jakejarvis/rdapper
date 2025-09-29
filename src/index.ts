@@ -1,18 +1,18 @@
-import { toISO } from "./lib/dates.js";
-import { getDomainParts, isLikelyDomain } from "./lib/domain.js";
-import { getRdapBaseUrlsForTld } from "./rdap/bootstrap.js";
-import { fetchRdapDomain } from "./rdap/client.js";
-import { normalizeRdap } from "./rdap/normalize.js";
-import type { DomainRecord, LookupOptions, LookupResult } from "./types.js";
-import { whoisQuery } from "./whois/client.js";
+import { toISO } from "./lib/dates";
+import { getDomainParts, isLikelyDomain } from "./lib/domain";
+import { getRdapBaseUrlsForTld } from "./rdap/bootstrap";
+import { fetchRdapDomain } from "./rdap/client";
+import { normalizeRdap } from "./rdap/normalize";
+import type { DomainRecord, LookupOptions, LookupResult } from "./types";
+import { whoisQuery } from "./whois/client";
 import {
   extractWhoisReferral,
-  ianaWhoisServerForTld,
   getIanaWhoisTextForTld,
+  ianaWhoisServerForTld,
   parseIanaRegistrationInfoUrl,
-} from "./whois/discovery.js";
-import { normalizeWhois } from "./whois/normalize.js";
-import { WHOIS_TLD_EXCEPTIONS } from "./whois/servers.js";
+} from "./whois/discovery";
+import { normalizeWhois } from "./whois/normalize";
+import { WHOIS_TLD_EXCEPTIONS } from "./whois/servers";
 
 /**
  * High-level lookup that prefers RDAP and falls back to WHOIS.
@@ -69,9 +69,7 @@ export async function lookupDomain(
       const regUrl = ianaText
         ? parseIanaRegistrationInfoUrl(ianaText)
         : undefined;
-      const hint = regUrl
-        ? ` See registration info at ${regUrl}.`
-        : "";
+      const hint = regUrl ? ` See registration info at ${regUrl}.` : "";
       return {
         ok: false,
         error: `No WHOIS server discovered for TLD '${tld}'. This registry may not publish public WHOIS over port 43.${hint}`,
@@ -150,4 +148,4 @@ export async function isRegistered(
   return res.record.isRegistered === true;
 }
 
-export type * from "./types.js";
+export type * from "./types";
