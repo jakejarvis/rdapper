@@ -84,6 +84,10 @@ export interface LookupOptions {
   rdapOnly?: boolean; // don't fall back to WHOIS
   whoisOnly?: boolean; // don't attempt RDAP
   followWhoisReferral?: boolean; // follow referral server (default true)
+  maxWhoisReferralHops?: number; // maximum registrar WHOIS referral hops (default 2)
+  rdapFollowLinks?: boolean; // follow RDAP related/entity links (default true)
+  maxRdapLinkHops?: number; // maximum RDAP related link fetches (default 2)
+  rdapLinkRels?: string[]; // RDAP link rels to consider (default ["related","entity","registrar","alternate"])
   customBootstrapUrl?: string; // override IANA bootstrap
   // WHOIS discovery and query tuning
   whoisHints?: Record<string, string>; // override/add authoritative WHOIS per TLD

@@ -2,16 +2,17 @@ import { toISO } from "./lib/dates";
 import { getDomainParts, isLikelyDomain } from "./lib/domain";
 import { getRdapBaseUrlsForTld } from "./rdap/bootstrap";
 import { fetchRdapDomain } from "./rdap/client";
+import { fetchAndMergeRdapRelated } from "./rdap/merge";
 import { normalizeRdap } from "./rdap/normalize";
 import type { DomainRecord, LookupOptions, LookupResult } from "./types";
 import { whoisQuery } from "./whois/client";
 import {
-  extractWhoisReferral,
   getIanaWhoisTextForTld,
   ianaWhoisServerForTld,
   parseIanaRegistrationInfoUrl,
 } from "./whois/discovery";
 import { normalizeWhois } from "./whois/normalize";
+import { followWhoisReferrals } from "./whois/referral";
 import { WHOIS_TLD_EXCEPTIONS } from "./whois/servers";
 
 /**
@@ -39,11 +40,16 @@ export async function lookupDomain(
         tried.push(base);
         try {
           const { json } = await fetchRdapDomain(domain, base, opts);
+          const rdapEnriched = await fetchAndMergeRdapRelated(
+            domain,
+            json,
+            opts,
+          );
           const record: DomainRecord = normalizeRdap(
             domain,
             tld,
-            json,
-            tried,
+            rdapEnriched.merged,
+            [...tried, ...rdapEnriched.serversTried],
             now,
             !!opts?.includeRaw,
           );
@@ -75,18 +81,8 @@ export async function lookupDomain(
         error: `No WHOIS server discovered for TLD '${tld}'. This registry may not publish public WHOIS over port 43.${hint}`,
       };
     }
-    // Query the TLD server first; if it returns a referral, we follow it below.
-    let res = await whoisQuery(whoisServer, domain, opts);
-    if (opts?.followWhoisReferral !== false) {
-      const referral = extractWhoisReferral(res.text);
-      if (referral && referral.toLowerCase() !== whoisServer.toLowerCase()) {
-        try {
-          res = await whoisQuery(referral, domain, opts);
-        } catch {
-          // keep original
-        }
-      }
-    }
+    // Query the TLD server first; optionally follow registrar referrals (multi-hop)
+    const res = await followWhoisReferrals(whoisServer, domain, opts);
 
     // If TLD registry returns no match and there was no referral, try multi-label public suffix candidates
     if (
@@ -102,10 +98,18 @@ export async function lookupDomain(
       for (const server of candidates) {
         try {
           const alt = await whoisQuery(server, domain, opts);
-          if (alt.text && !/error/i.test(alt.text)) {
-            res = alt;
-            break;
-          }
+          if (alt.text && !/error/i.test(alt.text))
+            return {
+              ok: true,
+              record: normalizeWhois(
+                domain,
+                tld,
+                alt.text,
+                alt.serverQueried,
+                now,
+                !!opts?.includeRaw,
+              ),
+            };
         } catch {
           // try next
         }

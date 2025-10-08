@@ -49,6 +49,10 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => false
 - `rdapOnly?: boolean` – Only attempt RDAP; do not fall back to WHOIS.
 - `whoisOnly?: boolean` – Skip RDAP and query WHOIS directly.
 - `followWhoisReferral?: boolean` – Follow registrar referral from the TLD WHOIS (default `true`).
+- `maxWhoisReferralHops?: number` – Maximum registrar WHOIS referral hops to follow (default `2`).
+- `rdapFollowLinks?: boolean` – Follow related/entity RDAP links to enrich data (default `true`).
+- `maxRdapLinkHops?: number` – Maximum RDAP related link hops to follow (default `2`).
+- `rdapLinkRels?: string[]` – RDAP link rel values to consider (default `["related","entity","registrar","alternate"]`).
 - `customBootstrapUrl?: string` – Override RDAP bootstrap URL.
 - `whoisHints?: Record<string, string>` – Override/add authoritative WHOIS per TLD (keys are lowercase TLDs, values may include or omit `whois://`).
 - `includeRaw?: boolean` – Include `rawRdap`/`rawWhois` in the returned record (default `false`).
@@ -144,10 +148,11 @@ interface DomainRecord {
 - RDAP
   - Discovers base URLs for the TLD via IANA’s RDAP bootstrap JSON.
   - Tries each base until one responds successfully; parses standard RDAP domain JSON.
+  - Optionally follows related/entity links to registrar RDAP resources and merges results (bounded by hop limits).
   - Normalizes registrar (from `entities`), contacts (vCard), nameservers (`ipAddresses`), events (created/changed/expiration), statuses, and DNSSEC (`secureDNS`).
 - WHOIS
   - Discovers the authoritative TLD WHOIS via `whois.iana.org` (TCP 43), with curated exceptions for tricky zones and public SLDs.
-  - Queries the TLD WHOIS; if a registrar referral is present and `followWhoisReferral !== false`, follows one hop to the registrar WHOIS.
+  - Queries the TLD WHOIS and follows registrar referrals recursively up to `maxWhoisReferralHops` (unless disabled).
   - Normalizes common key/value variants across gTLD/ccTLD formats (dates, statuses, nameservers, contacts). Availability is inferred from common phrases (best‑effort heuristic).
 
 Timeouts are enforced per request using a simple race against `timeoutMs` (default 15s). All network I/O is performed with global `fetch` (RDAP) and a raw TCP socket (WHOIS).

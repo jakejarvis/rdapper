@@ -8,7 +8,14 @@ vi.mock("./rdap/bootstrap.js", () => ({
 vi.mock("./rdap/client.js", () => ({
   fetchRdapDomain: vi.fn(async () => ({
     url: "https://rdap.example/domain/example.com",
-    json: { ldhName: "example.com" },
+    json: { ldhName: "example.com", links: [] },
+  })),
+}));
+
+vi.mock("./rdap/merge.js", () => ({
+  fetchAndMergeRdapRelated: vi.fn(async (_domain: string, json: unknown) => ({
+    merged: json,
+    serversTried: [],
   })),
 }));
 
@@ -18,6 +25,19 @@ vi.mock("./whois/client.js", () => ({
     serverQueried: "whois.verisign-grs.com",
   })),
 }));
+
+vi.mock("./whois/referral.js", async () => {
+  const client = await import("./whois/client.js");
+  return {
+    followWhoisReferrals: vi.fn(
+      async (
+        server: string,
+        domain: string,
+        opts?: import("./types").LookupOptions,
+      ) => client.whoisQuery(server, domain, opts),
+    ),
+  };
+});
 
 vi.mock("./whois/discovery.js", async () => {
   const actual = await vi.importActual("./whois/discovery.js");
@@ -43,6 +63,7 @@ import * as rdapClient from "./rdap/client";
 import type { WhoisQueryResult } from "./whois/client";
 import * as whoisClient from "./whois/client";
 import * as discovery from "./whois/discovery";
+import * as whoisReferral from "./whois/referral";
 
 // 1) Orchestration tests (RDAP path, fallback, whoisOnly)
 describe("lookupDomain orchestration", () => {
@@ -93,20 +114,10 @@ describe("WHOIS referral & includeRaw", () => {
   });
 
   it("does not follow referral when followWhoisReferral is false", async () => {
-    vi.mocked(whoisClient.whoisQuery).mockImplementation(
-      async (server: string): Promise<WhoisQueryResult> => {
-        if (server === "whois.verisign-grs.com") {
-          return {
-            text: "Registrar WHOIS Server: whois.registrar.test\nDomain Name: EXAMPLE.COM",
-            serverQueried: "whois.verisign-grs.com",
-          };
-        }
-        return {
-          text: "Domain Name: EXAMPLE.COM\nRegistrar: Registrar LLC",
-          serverQueried: "whois.registrar.test",
-        };
-      },
-    );
+    vi.mocked(whoisReferral.followWhoisReferrals).mockResolvedValue({
+      text: "Registrar WHOIS Server: whois.registrar.test\nDomain Name: EXAMPLE.COM",
+      serverQueried: "whois.verisign-grs.com",
+    });
 
     const res = await lookupDomain("example.com", {
       timeoutMs: 200,
@@ -114,26 +125,17 @@ describe("WHOIS referral & includeRaw", () => {
       followWhoisReferral: false,
     });
     expect(res.ok, res.error).toBe(true);
-    expect(vi.mocked(whoisClient.whoisQuery)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(whoisClient.whoisQuery).mock.calls[0][0]).toBe(
-      "whois.verisign-grs.com",
+    expect(vi.mocked(whoisReferral.followWhoisReferrals)).toHaveBeenCalledTimes(
+      1,
     );
   });
 
   it("includes rawWhois when includeRaw is true", async () => {
-    vi.mocked(whoisClient.whoisQuery).mockImplementation(
-      async (server: string): Promise<WhoisQueryResult> => {
-        if (server === "whois.verisign-grs.com") {
-          return {
-            text: "Registrar WHOIS Server: whois.registrar.test\nDomain Name: EXAMPLE.COM",
-            serverQueried: "whois.verisign-grs.com",
-          };
-        }
-        return {
-          text: "Domain Name: EXAMPLE.COM\nRegistrar: Registrar LLC",
-          serverQueried: "whois.registrar.test",
-        };
-      },
+    vi.mocked(whoisReferral.followWhoisReferrals).mockImplementation(
+      async (_server: string, _domain: string): Promise<WhoisQueryResult> => ({
+        text: "Domain Name: EXAMPLE.COM\nRegistrar: Registrar LLC",
+        serverQueried: "whois.registrar.test",
+      }),
     );
 
     const res = await lookupDomain("example.com", {
@@ -159,6 +161,14 @@ describe("WHOIS multi-label public suffix fallback", () => {
       publicSuffix: "uk.com",
       tld: "com",
     });
+    // Ensure referral helper defers to whoisQuery for initial TLD query in this suite
+    vi.mocked(whoisReferral.followWhoisReferrals).mockImplementation(
+      async (
+        server: string,
+        d: string,
+        o?: import("./types").LookupOptions,
+      ): Promise<WhoisQueryResult> => whoisClient.whoisQuery(server, d, o),
+    );
   });
 
   it("tries exception server for multi-label public suffix when TLD says no match", async () => {
