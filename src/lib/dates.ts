@@ -11,9 +11,9 @@ export function toISO(
   // Try several structured formats seen in WHOIS outputs (treat as UTC when no TZ provided)
   const tryFormats = [
     // 2023-01-02 03:04:05Z or without Z
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:Z)?$/,
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:Z|([+-]\d{2})(?::?(\d{2}))?)?$/,
     // 2023/01/02 03:04:05
-    /^(\d{4})\/(\d{2})\/(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/,
+    /^(\d{4})\/(\d{2})\/(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:Z|([+-]\d{2})(?::?(\d{2}))?)?$/,
     // 02-Jan-2023
     /^(\d{2})-([A-Za-z]{3})-(\d{4})$/,
     // Jan 02 2023
@@ -69,17 +69,26 @@ function parseWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined {
   try {
     // If the matched string contains time components, parse as Y-M-D H:M:S
     if (m[0].includes(":")) {
-      const [_, y, mo, d, hh, mm, ss] = m;
-      return new Date(
-        Date.UTC(
-          Number(y),
-          Number(mo) - 1,
-          Number(d),
-          Number(hh),
-          Number(mm),
-          Number(ss),
-        ),
+      const [_, y, mo, d, hh, mm, ss, offH, offM] = m;
+      // Base time as UTC
+      let dt = Date.UTC(
+        Number(y),
+        Number(mo) - 1,
+        Number(d),
+        Number(hh),
+        Number(mm),
+        Number(ss),
       );
+      // Apply timezone offset if present (e.g., +0000, -0500, +05:30)
+      if (offH) {
+        const sign = offH.startsWith("-") ? -1 : 1;
+        const hours = Math.abs(Number(offH));
+        const minutes = offM ? Number(offM) : 0;
+        const offsetMs = sign * (hours * 60 + minutes) * 60 * 1000;
+        // The captured time is local with an explicit offset; convert to UTC
+        dt -= offsetMs;
+      }
+      return new Date(dt);
     }
     // If the matched string contains hyphens, treat as DD-MMM-YYYY
     if (m[0].includes("-")) {

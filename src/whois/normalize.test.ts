@@ -96,6 +96,49 @@ DNSSEC: unsigned
   expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
 });
 
+test("WHOIS registrar response with Registrar Registration Expiration Date", () => {
+  const text = `
+Domain Name: EXAMPLE.US
+Registrar WHOIS Server: whois.registrar.test
+Registrar URL: http://www.registrar.test
+Updated Date: 2025-03-23T10:53:03+0000
+Creation Date: 2020-04-24T15:03:39+0000
+Registrar Registration Expiration Date: 2027-04-23T00:00:00+0000
+Registrar: Registrar LLC
+`;
+  const rec = normalizeWhois(
+    "example.us",
+    "us",
+    text,
+    "whois.registrar.test",
+    "2025-01-01T00:00:00Z",
+  );
+  expect(Boolean(rec.expirationDate)).toBe(true);
+  expect(rec.expirationDate).toBe("2027-04-23T00:00:00Z");
+});
+
+test("WHOIS .edu EDUCAUSE format", () => {
+  const text = `
+This Registry database contains ONLY .EDU domains.
+
+Domain Name: TUFTS.EDU
+
+Domain record activated:    22-Jun-1987
+Domain record last updated: 02-Jul-2025
+Domain expires:             31-Jul-2026
+`;
+  const rec = normalizeWhois(
+    "tufts.edu",
+    "edu",
+    text,
+    "whois.educause.edu",
+    "2025-01-01T00:00:00Z",
+  );
+  expect(rec.creationDate).toBe("1987-06-22T00:00:00Z");
+  expect(rec.updatedDate).toBe("2025-07-02T00:00:00Z");
+  expect(rec.expirationDate).toBe("2026-07-31T00:00:00Z");
+});
+
 test("Privacy redacted WHOIS normalizes without contacts", () => {
   const text = `
 Domain Name: EXAMPLE.COM

@@ -18,4 +18,11 @@ test("toISO parses ISO and common whois formats", () => {
 
   const mdy = toISO("Jan 02 2023");
   expect(mdy).toBe("2023-01-02T00:00:00Z");
+  // Registrar style timezone offsets
+  const plus0000 = toISO("2025-03-23T10:53:03+0000");
+  expect(plus0000).toBe("2025-03-23T10:53:03Z");
+  const plus0000Space = toISO("2025-03-23 10:53:03+0000");
+  expect(plus0000Space).toBe("2025-03-23T10:53:03Z");
+  const plus0530 = toISO("2025-03-23T10:53:03+05:30");
+  expect(plus0530).toBe("2025-03-23T05:23:03Z");
 });

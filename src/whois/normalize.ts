@@ -31,17 +31,29 @@ export function normalizeWhois(
     "domain create date",
     "created",
     "registered",
+    // EDUCAUSE (.edu)
+    "domain record activated",
   ]);
   const updatedDate = anyValue(map, [
     "updated date",
     "last updated",
     "last modified",
     "modified",
+    // EDUCAUSE (.edu)
+    "domain record last updated",
   ]);
   const expirationDate = anyValue(map, [
     "registry expiry date",
+    "registry expiration date",
     "expiry date",
     "expiration date",
+    // Registrar-side synonyms commonly seen after referrals
+    "registrar registration expiration date",
+    "registrar registration expiry date",
+    "registrar expiration date",
+    "registrar expiry date",
+    // EDUCAUSE (.edu)
+    "domain expires",
     "paid-till",
     "expires on",
     "renewal date",
