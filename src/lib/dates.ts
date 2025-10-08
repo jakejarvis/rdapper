@@ -22,7 +22,7 @@ export function toISO(
   for (const re of tryFormats) {
     const m = raw.match(re);
     if (!m) continue;
-    const d = parseWithRegex(m, re);
+    const d = parseDateWithRegex(m, re);
     if (d) return toIsoFromDate(d);
   }
   // Fallback to native Date parsing (handles ISO and RFC2822 with TZ)
@@ -51,7 +51,10 @@ function toIsoFromDate(d: Date): string | undefined {
   }
 }
 
-function parseWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined {
+function parseDateWithRegex(
+  m: RegExpMatchArray,
+  _re: RegExp,
+): Date | undefined {
   const monthMap: Record<string, number> = {
     jan: 0,
     feb: 1,
