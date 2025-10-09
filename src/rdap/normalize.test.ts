@@ -80,3 +80,30 @@ test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () =
   expect(rec.whoisServer).toBe("whois.example-registrar.test");
   expect(rec.source).toBe("rdap");
 });
+
+test("normalizeRdap derives privacyEnabled from registrant keywords", () => {
+  const rdap = {
+    ldhName: "example.com",
+    unicodeName: "example.com",
+    entities: [
+      {
+        roles: ["registrant"],
+        vcardArray: [
+          "vcard",
+          [
+            ["fn", {}, "text", "REDACTED FOR PRIVACY"],
+            ["org", {}, "text", "Example Org"],
+          ],
+        ],
+      },
+    ],
+  };
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    rdap,
+    ["https://rdap.example/"],
+    "2025-01-01T00:00:00Z",
+  );
+  expect(rec.privacyEnabled).toBe(true);
+});

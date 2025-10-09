@@ -4,7 +4,7 @@ RDAP‑first domain registration lookups with WHOIS fallback. Produces a single,
 
 - RDAP discovery via IANA bootstrap (`https://data.iana.org/rdap/dns.json`)
 - WHOIS TCP 43 client with TLD discovery, registrar referral follow, and curated exceptions
-- Normalized output: registrar, contacts, nameservers, statuses, dates, DNSSEC, source metadata
+- Normalized output: registrar, contacts, nameservers, statuses, dates, DNSSEC, privacy flag, source metadata
 - TypeScript types included; ESM‑only; no external HTTP client (uses global `fetch`)
 
 ### [🦉 See it in action on hoot.sh!](https://hoot.sh)
@@ -117,6 +117,7 @@ interface DomainRecord {
     country?: string;
     countryCode?: string;
   }>;
+  privacyEnabled?: boolean;   // registrant appears privacy-redacted based on keyword heuristics
   whoisServer?: string;       // authoritative WHOIS queried (if any)
   rdapServers?: string[];     // RDAP base URLs tried
   rawRdap?: unknown;          // raw RDAP JSON (only when options.includeRaw)

@@ -169,3 +169,21 @@ Domain Status: clientTransferProhibited https://icann.org/epp#clientTransferProh
   expect(Boolean(rec.expirationDate)).toBe(true);
   expect(rec.source).toBe("whois");
 });
+
+test("WHOIS derives privacyEnabled from registrant keywords", () => {
+  const text = `
+Domain Name: EXAMPLE.COM
+Registrar WHOIS Server: whois.registrar.test
+Registrar URL: http://www.registrar.test
+Registrant Name: REDACTED FOR PRIVACY
+Registrant Organization: Example Org
+`;
+  const rec = normalizeWhois(
+    "example.com",
+    "com",
+    text,
+    "whois.verisign-grs.com",
+    "2025-01-01T00:00:00Z",
+  );
+  expect(rec.privacyEnabled).toBe(true);
+});

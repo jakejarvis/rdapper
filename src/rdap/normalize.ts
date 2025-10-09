@@ -1,4 +1,5 @@
 import { toISO } from "../lib/dates";
+import { isPrivacyName } from "../lib/privacy";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
 import type {
   Contact,
@@ -56,6 +57,15 @@ export function normalizeRdap(
   // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
   const contacts: Contact[] | undefined = extractContacts(
     doc.entities as unknown,
+  );
+
+  // Derive privacy flag from registrant name/org keywords
+  const registrant = contacts?.find((c) => c.type === "registrant");
+  const privacyEnabled = !!(
+    registrant &&
+    (
+      [registrant.name, registrant.organization].filter(Boolean) as string[]
+    ).some(isPrivacyName)
   );
 
   // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
@@ -139,6 +149,7 @@ export function normalizeRdap(
       ? uniq(nameservers.map((n) => ({ ...n, host: n.host.toLowerCase() })))
       : undefined,
     contacts,
+    privacyEnabled: privacyEnabled ? true : undefined,
     whoisServer,
     rdapServers: rdapServersTried,
     rawRdap: includeRaw ? rdap : undefined,

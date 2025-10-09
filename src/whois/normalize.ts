@@ -1,5 +1,6 @@
 import { toISO } from "../lib/dates";
 import { isWhoisAvailable } from "../lib/domain";
+import { isPrivacyName } from "../lib/privacy";
 import { parseKeyValueLines, uniq } from "../lib/text";
 import type {
   Contact,
@@ -132,6 +133,15 @@ export function normalizeWhois(
   // Contacts: best-effort parse common keys
   const contacts = collectContacts(map);
 
+  // Derive privacy flag from registrant name/org keywords
+  const registrant = contacts?.find((c) => c.type === "registrant");
+  const privacyEnabled = !!(
+    registrant &&
+    (
+      [registrant.name, registrant.organization].filter(Boolean) as string[]
+    ).some(isPrivacyName)
+  );
+
   const dnssecRaw = (map.dnssec?.[0] || "").toLowerCase();
   const dnssec = dnssecRaw
     ? { enabled: /signed|yes|true/.test(dnssecRaw) }
@@ -161,6 +171,7 @@ export function normalizeWhois(
     dnssec,
     nameservers,
     contacts,
+    privacyEnabled: privacyEnabled ? true : undefined,
     whoisServer,
     rdapServers: undefined,
     rawRdap: undefined,
