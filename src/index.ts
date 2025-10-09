@@ -1,4 +1,3 @@
-import { toISO } from "./lib/dates";
 import { getDomainParts, isLikelyDomain } from "./lib/domain";
 import { getRdapBaseUrlsForTld } from "./rdap/bootstrap";
 import { fetchRdapDomain } from "./rdap/client";
@@ -28,9 +27,6 @@ export async function lookupDomain(
       return { ok: false, error: "Input does not look like a domain" };
     }
     const { publicSuffix, tld } = getDomainParts(domain);
-    // Avoid non-null assertion: fallback to a stable ISO string if parsing ever fails
-    const now =
-      toISO(new Date()) ?? new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
     // If WHOIS-only, skip RDAP path
     if (!opts?.whoisOnly) {
@@ -50,7 +46,6 @@ export async function lookupDomain(
             tld,
             rdapEnriched.merged,
             [...tried, ...rdapEnriched.serversTried],
-            now,
             !!opts?.includeRaw,
           );
           return { ok: true, record };
@@ -106,7 +101,6 @@ export async function lookupDomain(
                 tld,
                 alt.text,
                 alt.serverQueried,
-                now,
                 !!opts?.includeRaw,
               ),
             };
@@ -120,7 +114,6 @@ export async function lookupDomain(
       tld,
       res.text,
       res.serverQueried,
-      now,
       !!opts?.includeRaw,
     );
     return { ok: true, record };

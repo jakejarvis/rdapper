@@ -9,13 +9,7 @@ Nserver: ns2.example.net
 Status: connect
 Changed: 2020-01-02
 `;
-  const rec = normalizeWhois(
-    "example.de",
-    "de",
-    text,
-    "whois.denic.de",
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeWhois("example.de", "de", text, "whois.denic.de");
   expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
   expect(rec.nameservers?.[0].host).toBe("ns1.example.net");
 });
@@ -36,13 +30,7 @@ Name servers:
         ns1.example.net 192.0.2.1
         ns2.example.net
 `;
-  const rec = normalizeWhois(
-    "example.uk",
-    "uk",
-    text,
-    "whois.nic.uk",
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeWhois("example.uk", "uk", text, "whois.nic.uk");
   expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
   expect(Boolean(rec.creationDate)).toBe(true);
   expect(Boolean(rec.expirationDate)).toBe(true);
@@ -58,13 +46,7 @@ test("WHOIS .jp JPRS style privacy redacted", () => {
 [Expires on]                 2030/01/02
 [Status]                     Active
 `;
-  const rec = normalizeWhois(
-    "example.jp",
-    "jp",
-    text,
-    "whois.jprs.jp",
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeWhois("example.jp", "jp", text, "whois.jprs.jp");
   expect(Boolean(rec.creationDate)).toBe(true);
   expect(Boolean(rec.expirationDate)).toBe(true);
   expect(Boolean(rec.statuses)).toBe(true);
@@ -84,13 +66,7 @@ Name Server: NS1.EXAMPLE.IO
 Name Server: NS2.EXAMPLE.IO
 DNSSEC: unsigned
 `;
-  const rec = normalizeWhois(
-    "example.io",
-    "io",
-    text,
-    "whois.nic.io",
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeWhois("example.io", "io", text, "whois.nic.io");
   expect(Boolean(rec.creationDate)).toBe(true);
   expect(Boolean(rec.expirationDate)).toBe(true);
   expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
@@ -106,13 +82,7 @@ Creation Date: 2020-04-24T15:03:39+0000
 Registrar Registration Expiration Date: 2027-04-23T00:00:00+0000
 Registrar: Registrar LLC
 `;
-  const rec = normalizeWhois(
-    "example.us",
-    "us",
-    text,
-    "whois.registrar.test",
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeWhois("example.us", "us", text, "whois.registrar.test");
   expect(Boolean(rec.expirationDate)).toBe(true);
   expect(rec.expirationDate).toBe("2027-04-23T00:00:00Z");
 });
@@ -127,13 +97,7 @@ Domain record activated:    22-Jun-1987
 Domain record last updated: 02-Jul-2025
 Domain expires:             31-Jul-2026
 `;
-  const rec = normalizeWhois(
-    "tufts.edu",
-    "edu",
-    text,
-    "whois.educause.edu",
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeWhois("tufts.edu", "edu", text, "whois.educause.edu");
   expect(rec.creationDate).toBe("1987-06-22T00:00:00Z");
   expect(rec.updatedDate).toBe("2025-07-02T00:00:00Z");
   expect(rec.expirationDate).toBe("2026-07-31T00:00:00Z");
@@ -163,7 +127,6 @@ Domain Status: clientTransferProhibited https://icann.org/epp#clientTransferProh
     "com",
     text,
     "whois.verisign-grs.com",
-    "2025-01-01T00:00:00Z",
   );
   expect(Boolean(rec.creationDate)).toBe(true);
   expect(Boolean(rec.expirationDate)).toBe(true);
@@ -183,7 +146,6 @@ Registrant Organization: Example Org
     "com",
     text,
     "whois.verisign-grs.com",
-    "2025-01-01T00:00:00Z",
   );
   expect(rec.privacyEnabled).toBe(true);
 });

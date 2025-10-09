@@ -123,7 +123,6 @@ interface DomainRecord {
   rawRdap?: unknown;          // raw RDAP JSON (only when options.includeRaw)
   rawWhois?: string;          // raw WHOIS text (only when options.includeRaw)
   source: "rdap" | "whois";   // which path produced data
-  fetchedAt: string;          // ISO 8601 timestamp
   warnings?: string[];
 }
 ```
@@ -139,8 +138,7 @@ interface DomainRecord {
   "statuses": [{ "status": "clientTransferProhibited" }],
   "nameservers": [{ "host": "a.iana-servers.net" }, { "host": "b.iana-servers.net" }],
   "dnssec": { "enabled": true },
-  "source": "rdap",
-  "fetchedAt": "2025-01-01T00:00:00Z"
+  "source": "rdap"
 }
 ```
 

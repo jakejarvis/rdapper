@@ -59,13 +59,9 @@ test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () =
     status: ["clientTransferProhibited"],
     port43: "whois.example-registrar.test",
   };
-  const rec = normalizeRdap(
-    "example.com",
-    "com",
-    rdap,
-    ["https://rdap.example/"],
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeRdap("example.com", "com", rdap, [
+    "https://rdap.example/",
+  ]);
   expect(rec.domain).toBe("example.com");
   expect(rec.tld).toBe("com");
   expect(rec.registrar?.name).toBe("Registrar LLC");
@@ -98,12 +94,8 @@ test("normalizeRdap derives privacyEnabled from registrant keywords", () => {
       },
     ],
   };
-  const rec = normalizeRdap(
-    "example.com",
-    "com",
-    rdap,
-    ["https://rdap.example/"],
-    "2025-01-01T00:00:00Z",
-  );
+  const rec = normalizeRdap("example.com", "com", rdap, [
+    "https://rdap.example/",
+  ]);
   expect(rec.privacyEnabled).toBe(true);
 });

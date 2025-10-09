@@ -100,8 +100,6 @@ export interface DomainRecord {
   rawWhois?: string;
   /** Which source produced data */
   source: LookupSource;
-  /** ISO 8601 timestamp at time of lookup */
-  fetchedAt: string;
   /** Warnings generated during lookup */
   warnings?: string[];
 }
