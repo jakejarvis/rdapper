@@ -35,6 +35,16 @@ await isRegistered("example.com"); // => true
 await isAvailable("likely-unregistered-thing-320485230458.com"); // => false
 ```
 
+Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1):
+
+```ts
+import { toRegistrableDomain } from "rdapper";
+
+toRegistrableDomain("https://sub.example.co.uk/page"); // => "example.co.uk"
+toRegistrableDomain("spark-public.s3.amazonaws.com");   // => "amazonaws.com" (ICANN-only default)
+toRegistrableDomain("192.168.0.1");                      // => null
+```
+
 ## API
 
 - `lookupDomain(domain, options?) => Promise<LookupResult>`

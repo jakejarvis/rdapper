@@ -4,7 +4,6 @@ import { fetchRdapDomain } from "./rdap/client";
 import { fetchAndMergeRdapRelated } from "./rdap/merge";
 import { normalizeRdap } from "./rdap/normalize";
 import type { DomainRecord, LookupOptions, LookupResult } from "./types";
-import { whoisQuery } from "./whois/client";
 import {
   getIanaWhoisTextForTld,
   ianaWhoisServerForTld,
@@ -12,7 +11,6 @@ import {
 } from "./whois/discovery";
 import { normalizeWhois } from "./whois/normalize";
 import { followWhoisReferrals } from "./whois/referral";
-import { WHOIS_TLD_EXCEPTIONS } from "./whois/servers";
 
 /**
  * High-level lookup that prefers RDAP and falls back to WHOIS.
@@ -26,7 +24,11 @@ export async function lookupDomain(
     if (!isLikelyDomain(domain)) {
       return { ok: false, error: "Input does not look like a domain" };
     }
-    const { publicSuffix, tld } = getDomainParts(domain);
+
+    const { publicSuffix: tld } = getDomainParts(domain);
+    if (!tld) {
+      return { ok: false, error: "Invalid TLD" };
+    }
 
     // If WHOIS-only, skip RDAP path
     if (!opts?.whoisOnly) {
@@ -76,39 +78,10 @@ export async function lookupDomain(
         error: `No WHOIS server discovered for TLD '${tld}'. This registry may not publish public WHOIS over port 43.${hint}`,
       };
     }
+
     // Query the TLD server first; optionally follow registrar referrals (multi-hop)
     const res = await followWhoisReferrals(whoisServer, domain, opts);
 
-    // If TLD registry returns no match and there was no referral, try multi-label public suffix candidates
-    if (
-      publicSuffix.includes(".") &&
-      /no match|not found/i.test(res.text) &&
-      opts?.followWhoisReferral !== false
-    ) {
-      const candidates: string[] = [];
-      const ps = publicSuffix.toLowerCase();
-      // Prefer explicit exceptions when known
-      const exception = WHOIS_TLD_EXCEPTIONS[ps];
-      if (exception) candidates.push(exception);
-      for (const server of candidates) {
-        try {
-          const alt = await whoisQuery(server, domain, opts);
-          if (alt.text && !/error/i.test(alt.text))
-            return {
-              ok: true,
-              record: normalizeWhois(
-                domain,
-                tld,
-                alt.text,
-                alt.serverQueried,
-                !!opts?.includeRaw,
-              ),
-            };
-        } catch {
-          // try next
-        }
-      }
-    }
     const record: DomainRecord = normalizeWhois(
       domain,
       tld,
@@ -145,4 +118,5 @@ export async function isRegistered(
   return res.record.isRegistered === true;
 }
 
+export { toRegistrableDomain } from "./lib/domain";
 export type * from "./types";

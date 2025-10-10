@@ -58,7 +58,6 @@ vi.mock("./lib/domain.js", async () => {
 });
 
 import { lookupDomain } from ".";
-import * as domain from "./lib/domain";
 import * as rdapClient from "./rdap/client";
 import type { WhoisQueryResult } from "./whois/client";
 import * as whoisClient from "./whois/client";
@@ -147,54 +146,5 @@ describe("WHOIS referral & includeRaw", () => {
     expect(res.ok, res.error).toBe(true);
     expect(res.record?.source).toBe("whois");
     expect(Boolean(res.record?.rawWhois)).toBe(true);
-  });
-});
-
-// 3) Multi-label public suffix fallback via exceptions (e.g., uk.com)
-describe("WHOIS multi-label public suffix fallback", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue(
-      "whois.centralnic.tld",
-    );
-    vi.mocked(domain.getDomainParts).mockReturnValue({
-      publicSuffix: "uk.com",
-      tld: "com",
-    });
-    // Ensure referral helper defers to whoisQuery for initial TLD query in this suite
-    vi.mocked(whoisReferral.followWhoisReferrals).mockImplementation(
-      async (
-        server: string,
-        d: string,
-        o?: import("./types").LookupOptions,
-      ): Promise<WhoisQueryResult> => whoisClient.whoisQuery(server, d, o),
-    );
-  });
-
-  it("tries exception server for multi-label public suffix when TLD says no match", async () => {
-    const whois = vi.mocked(whoisClient.whoisQuery);
-    whois.mockReset();
-    whois
-      .mockImplementationOnce(
-        async (): Promise<WhoisQueryResult> => ({
-          text: "No match for domain",
-          serverQueried: "whois.centralnic.tld",
-        }),
-      )
-      .mockImplementationOnce(
-        async (): Promise<WhoisQueryResult> => ({
-          text: "Domain Name: EXAMPLE.UK.COM\nRegistrar: Registrar LLC",
-          serverQueried: "whois.centralnic.com",
-        }),
-      );
-
-    const res = await lookupDomain("example.uk.com", {
-      timeoutMs: 200,
-      whoisOnly: true,
-    });
-    expect(res.ok, res.error).toBe(true);
-    expect(res.record?.source).toBe("whois");
-    expect(res.record?.tld).toBe("com");
-    expect(res.record?.whoisServer).toBe("whois.centralnic.com");
   });
 });

@@ -1,20 +1,23 @@
-import { getPublicSuffix } from "tldts";
+import { parse } from "tldts";
 
-export function getDomainParts(domain: string): {
-  publicSuffix: string;
-  tld: string;
-} {
-  const lower = domain.toLowerCase().trim();
-  const suffix = getPublicSuffix(lower) || "";
-  const publicSuffix =
-    suffix || lower.split(".").filter(Boolean).pop() || lower;
-  const labels = publicSuffix.split(".").filter(Boolean);
-  const tld = labels.length ? labels[labels.length - 1] : publicSuffix;
-  return { publicSuffix, tld };
+/**
+ * Parse a domain into its parts.
+ */
+export function getDomainParts(domain: string) {
+  const result = parse(domain);
+  return result;
 }
 
-export function isLikelyDomain(input: string): boolean {
-  return /^[a-z0-9.-]+$/i.test(input) && input.includes(".");
+/**
+ * Basic domain validity check (hostname-like), not performing DNS or RDAP.
+ */
+export function isLikelyDomain(value: string): boolean {
+  const v = (value ?? "").trim();
+  // Accept punycoded labels (xn--) by allowing digits and hyphens in TLD as well,
+  // while disallowing leading/trailing hyphens in any label.
+  return /^(?=.{1,253}$)(?:(?!-)[a-z0-9-]{1,63}(?<!-)\.)+(?!-)[a-z0-9-]{2,63}(?<!-)$/.test(
+    v.toLowerCase(),
+  );
 }
 
 export function punyToUnicode(domain: string): string {
@@ -23,6 +26,25 @@ export function punyToUnicode(domain: string): string {
   } catch {
     return domain;
   }
+}
+
+/**
+ * Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1).
+ * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs).
+ */
+export function toRegistrableDomain(input: string): string | null {
+  const raw = (input ?? "").trim();
+  if (raw === "") return null;
+
+  const result = parse(raw);
+
+  // Reject IPs and non-ICANN/public suffixes.
+  if (result.isIp) return null;
+  if (!result.isIcann) return null;
+
+  const domain = result.domain ?? "";
+  if (domain === "") return null;
+  return domain.toLowerCase();
 }
 
 // Common WHOIS availability phrases seen across registries/registrars
