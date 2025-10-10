@@ -181,6 +181,7 @@ Project layout:
 - Some TLDs provide no RDAP service; `rdapOnly: true` will fail for them.
 - Registries may throttle or block WHOIS; respect rate limits and usage policies.
 - Field presence depends on source and privacy policies (e.g., redaction/withholding).
+- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). If you need behavior closer to `psl` that considers private suffixes, see the `allowPrivateDomains` option in the `tldts` docs (rdapper currently sticks to ICANN‑only by default). See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
 
 ## License
 

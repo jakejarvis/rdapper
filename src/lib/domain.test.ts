@@ -1,9 +1,9 @@
 import { expect, test } from "vitest";
-import { extractTld, isLikelyDomain } from "./domain";
+import { getDomainParts, isLikelyDomain } from "./domain";
 
-test("extractTld basic", () => {
-  expect(extractTld("example.com")).toBe("com");
-  expect(extractTld("sub.example.co.uk")).toBe("uk");
+test("getDomainParts.tld basic", () => {
+  expect(getDomainParts("example.com").tld).toBe("com");
+  expect(getDomainParts("sub.example.co.uk").tld).toBe("uk");
 });
 
 test("isLikelyDomain", () => {

@@ -4,5 +4,5 @@ export default defineConfig({
   entry: ["src/index.ts"],
   platform: "node",
   dts: true,
-  external: ["psl"],
+  external: ["tldts"],
 });
