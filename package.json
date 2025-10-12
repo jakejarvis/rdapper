@@ -1,6 +1,6 @@
 {
   "name": "rdapper",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "license": "MIT",
   "description": "🎩 RDAP/WHOIS fetcher, parser, and normalizer for Node",
   "repository": {
