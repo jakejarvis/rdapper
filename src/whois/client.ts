@@ -1,4 +1,3 @@
-import { createConnection } from "node:net";
 import { withTimeout } from "../lib/async";
 import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
 import type { LookupOptions } from "../types";
@@ -29,14 +28,28 @@ export async function whoisQuery(
 }
 
 // Low-level WHOIS TCP client. Some registries require CRLF after the domain query.
-function queryTcp(
+async function queryTcp(
   host: string,
   port: number,
   query: string,
   options?: LookupOptions,
 ): Promise<string> {
+  let net: typeof import("net") | null;
+  try {
+    // biome-ignore lint/style/useNodejsImportProtocol: compatibility
+    net = await import("net");
+  } catch {
+    net = null;
+  }
+
+  if (!net?.createConnection) {
+    throw new Error(
+      "WHOIS client is only available in Node.js runtimes; try setting `rdapOnly: true`.",
+    );
+  }
+
   return new Promise((resolve, reject) => {
-    const socket = createConnection({ host, port });
+    const socket = net.createConnection({ host, port });
     let data = "";
     let done = false;
     const cleanup = () => {

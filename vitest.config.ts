@@ -6,7 +6,7 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     exclude: ["dist/**", "node_modules/**"],
     sequence: { hooks: "list" },
-    globals: false,
+    globals: true,
     testTimeout: process.env.SMOKE === "1" ? 30000 : 5000,
   },
 });

@@ -53,6 +53,20 @@ toRegistrableDomain("192.168.0.1");                      // => null
 - `isRegistered(domain, options?) => Promise<boolean>`
 - `isAvailable(domain, options?) => Promise<boolean>`
 
+### Edge runtimes (e.g., Vercel Edge)
+
+WHOIS requires a raw TCP connection over port 43 via `node:net`, which is not available on edge runtimes. This package lazily loads `node:net` only when the WHOIS code path runs. To use rdapper safely on edge:
+
+- Prefer RDAP only:
+
+```ts
+import { lookupDomain } from "rdapper";
+
+const res = await lookupDomain("example.com", { rdapOnly: true });
+```
+
+- If `rdapOnly` is omitted and the code path reaches WHOIS on edge, rdapper throws a clear runtime error indicating WHOIS is unsupported on edge and to run in Node or set `rdapOnly: true`.
+
 ### Options
 
 - `timeoutMs?: number` – Total timeout budget per network operation (default `15000`).
