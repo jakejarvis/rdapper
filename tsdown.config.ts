@@ -1,8 +1,9 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
   platform: "node",
+  entry: ["src/index.ts"],
   dts: true,
+  nodeProtocol: "strip",
   external: ["tldts"],
 });

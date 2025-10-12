@@ -53,6 +53,15 @@ toRegistrableDomain("192.168.0.1");                      // => null
 - `isRegistered(domain, options?) => Promise<boolean>`
 - `isAvailable(domain, options?) => Promise<boolean>`
 
+### CLI
+
+For quick checks, a minimal CLI is included:
+
+```bash
+npx rdapper example.com
+echo "example.com" | npx rdapper
+```
+
 ### Edge runtimes (e.g., Vercel Edge)
 
 WHOIS requires a raw TCP connection over port 43 via `node:net`, which is not available on edge runtimes. This package lazily loads `node:net` only when the WHOIS code path runs. To use rdapper safely on edge:
@@ -196,7 +205,7 @@ Project layout:
 - `src/whois/` – WHOIS TCP client, discovery/referral, normalization, exceptions
 - `src/lib/` – utilities for dates, text parsing, domain processing, async
 - `src/types.ts` – public types; `src/index.ts` re‑exports API and types
-- `cli.mjs` – local CLI helper for quick testing
+- `bin/cli.js` – simple CLI for quick checks
 
 ## Caveats
 

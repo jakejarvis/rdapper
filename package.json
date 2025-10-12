@@ -15,15 +15,19 @@
     "email": "jake@jarv.is",
     "url": "https://jarv.is"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": "./bin/cli.js",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js",
       "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.ts"
     }
   },
   "files": [
@@ -32,6 +36,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "cli": "node bin/cli.cjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

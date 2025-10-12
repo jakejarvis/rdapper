@@ -34,10 +34,9 @@ async function queryTcp(
   query: string,
   options?: LookupOptions,
 ): Promise<string> {
-  let net: typeof import("net") | null;
+  let net: typeof import("node:net") | null;
   try {
-    // biome-ignore lint/style/useNodejsImportProtocol: compatibility
-    net = await import("net");
+    net = await import("node:net");
   } catch {
     net = null;
   }
