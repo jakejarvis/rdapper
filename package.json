@@ -36,7 +36,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "cli": "node bin/cli.cjs",
+    "cli": "node bin/cli.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
