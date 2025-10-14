@@ -1,3 +1,4 @@
+import { isWhoisAvailable } from "../lib/domain";
 import type { LookupOptions } from "../types";
 import type { WhoisQueryResult } from "./client";
 import { whoisQuery } from "./client";
@@ -28,7 +29,14 @@ export async function followWhoisReferrals(
     visited.add(normalized);
     try {
       const res = await whoisQuery(next, domain, opts);
-      current = res; // adopt the newer, more specific result
+      // Prefer authoritative TLD response when registrar contradicts availability
+      const registeredBefore = !isWhoisAvailable(current.text);
+      const registeredAfter = !isWhoisAvailable(res.text);
+      if (registeredBefore && !registeredAfter) {
+        // Registrar claims availability but TLD shows registered: keep TLD
+        break;
+      }
+      current = res; // adopt registrar when it does not downgrade registration
     } catch {
       // If referral server fails, stop following and keep the last good response
       break;

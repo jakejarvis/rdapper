@@ -87,6 +87,8 @@ Registrar: Registrar LLC
   expect(rec.expirationDate).toBe("2027-04-23T00:00:00Z");
 });
 
+// removed: availability override test in favor of referral-level logic
+
 test("WHOIS .edu EDUCAUSE format", () => {
   const text = `
 This Registry database contains ONLY .EDU domains.
