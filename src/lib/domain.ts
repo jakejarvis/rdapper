@@ -1,11 +1,28 @@
 import { parse } from "tldts";
 
+type ParseOptions = Parameters<typeof parse>[1];
+
 /**
- * Parse a domain into its parts.
+ * Parse a domain into its parts. Accepts options which are passed to tldts.parse().
+ * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
-export function getDomainParts(domain: string) {
-  const result = parse(domain);
-  return result;
+export function getDomainParts(
+  domain: string,
+  opts?: ParseOptions,
+): ReturnType<typeof parse> {
+  return parse(domain, { ...opts });
+}
+
+/** Get the TLD (ICANN-only public suffix) of a domain. */
+export function getDomainTld(
+  domain: string,
+  opts?: ParseOptions,
+): string | null {
+  const result = getDomainParts(domain, {
+    allowPrivateDomains: false,
+    ...opts,
+  });
+  return result.publicSuffix ?? null;
 }
 
 /**
@@ -32,11 +49,17 @@ export function punyToUnicode(domain: string): string {
  * Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1).
  * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs).
  */
-export function toRegistrableDomain(input: string): string | null {
+export function toRegistrableDomain(
+  input: string,
+  opts?: ParseOptions,
+): string | null {
   const raw = (input ?? "").trim();
   if (raw === "") return null;
 
-  const result = parse(raw);
+  const result = getDomainParts(raw, {
+    allowPrivateDomains: false,
+    ...opts,
+  });
 
   // Reject IPs and non-ICANN/public suffixes.
   if (result.isIp) return null;

@@ -118,5 +118,10 @@ export async function isRegistered(
   return res.record.isRegistered === true;
 }
 
-export { toRegistrableDomain } from "./lib/domain";
+export {
+  getDomainParts,
+  getDomainTld,
+  isLikelyDomain,
+  toRegistrableDomain,
+} from "./lib/domain";
 export type * from "./types";
