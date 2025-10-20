@@ -37,9 +37,10 @@ export async function getRdapBaseUrlsForTld(
   const target = tld.toLowerCase();
   const bases: string[] = [];
   for (const svc of data.services) {
-    const tlds = svc[0];
+    const tlds = svc[0].map((x) => x.toLowerCase());
     const urls = svc[1];
-    if (tlds.map((x) => x.toLowerCase()).includes(target)) {
+    // Match exact TLD, and also support multi-label public suffixes present in IANA (rare)
+    if (tlds.includes(target)) {
       for (const u of urls) {
         const base = u.endsWith("/") ? u : `${u}/`;
         bases.push(base);

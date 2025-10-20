@@ -17,7 +17,7 @@ vi.mock("./client.js", () => ({
   }),
 }));
 
-import { followWhoisReferrals } from "./referral";
+import { collectWhoisReferralChain, followWhoisReferrals } from "./referral";
 
 describe("WHOIS referral contradiction handling", () => {
   it("keeps TLD WHOIS when registrar claims availability", async () => {
@@ -29,5 +29,17 @@ describe("WHOIS referral contradiction handling", () => {
     // ensure we didn't adopt the registrar response
     expect(res.text.toLowerCase().includes("creation date")).toBe(true);
     expect(res.text.toLowerCase().includes("no match")).toBe(false);
+  });
+
+  it("collects chain and does not append contradictory registrar", async () => {
+    const chain = await collectWhoisReferralChain(
+      "whois.nic.io",
+      "raindrop.io",
+      { followWhoisReferral: true, maxWhoisReferralHops: 2 },
+    );
+    expect(Array.isArray(chain)).toBe(true);
+    // Mocked registrar is contradictory, so chain should contain only the TLD response
+    expect(chain.length).toBe(1);
+    expect(chain[0].serverQueried).toBe("whois.nic.io");
   });
 });

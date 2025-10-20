@@ -81,6 +81,12 @@ const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
   /\bdomain status[:\s]+available\b/i,
   /\bobject does not exist\b/i,
   /\bthe queried object does not exist\b/i,
+  // Common variants across ccTLDs/registrars
+  /\bstatus:\s*free\b/i,
+  /\bstatus:\s*available\b/i,
+  /\bno object found\b/i,
+  /\bnicht gefunden\b/i,
+  /\bpending release\b/i, // often signals not registered/being deleted
 ];
 
 export function isWhoisAvailable(text: string | undefined): boolean {

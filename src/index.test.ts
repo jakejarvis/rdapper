@@ -36,6 +36,13 @@ vi.mock("./whois/referral.js", async () => {
         opts?: import("./types").LookupOptions,
       ) => client.whoisQuery(server, domain, opts),
     ),
+    collectWhoisReferralChain: vi.fn(
+      async (
+        server: string,
+        domain: string,
+        opts?: import("./types").LookupOptions,
+      ) => [await client.whoisQuery(server, domain, opts)],
+    ),
   };
 });
 
@@ -113,10 +120,9 @@ describe("WHOIS referral & includeRaw", () => {
   });
 
   it("does not follow referral when followWhoisReferral is false", async () => {
-    vi.mocked(whoisReferral.followWhoisReferrals).mockResolvedValue({
-      text: "Registrar WHOIS Server: whois.registrar.test\nDomain Name: EXAMPLE.COM",
-      serverQueried: "whois.verisign-grs.com",
-    });
+    // Ensure chain collector is used and only initial TLD response is returned
+    const original = vi.mocked(whoisReferral.collectWhoisReferralChain);
+    original.mockClear();
 
     const res = await lookupDomain("example.com", {
       timeoutMs: 200,
@@ -124,9 +130,7 @@ describe("WHOIS referral & includeRaw", () => {
       followWhoisReferral: false,
     });
     expect(res.ok, res.error).toBe(true);
-    expect(vi.mocked(whoisReferral.followWhoisReferrals)).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(original).toHaveBeenCalledTimes(1);
   });
 
   it("includes rawWhois when includeRaw is true", async () => {
