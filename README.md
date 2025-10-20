@@ -2,12 +2,17 @@
 
 RDAP‑first domain registration lookups with WHOIS fallback. Produces a single, normalized record shape regardless of source.
 
-- RDAP discovery via IANA bootstrap (`https://data.iana.org/rdap/dns.json`)
-- WHOIS TCP 43 client with TLD discovery, registrar referral follow, and curated exceptions
-- Normalized output: registrar, contacts, nameservers, statuses, dates, DNSSEC, privacy flag, source metadata
-- TypeScript types included; ESM‑only; no external HTTP client (uses global `fetch`)
+- RDAP‑first lookup via [IANA bootstrap](https://data.iana.org/rdap/dns.json) with automatic WHOIS fallback when needed
+- Smart WHOIS client (TCP 43): authoritative TLD discovery, registrar referral follow, and curated exceptions
+- Rich, normalized results: registrar, contacts, nameservers, EPP statuses, key dates, DNSSEC, privacy flag, source metadata
+- RDAP enrichment: follows related/entity/registrar links (bounded) to fill in missing details
+- TypeScript‑first: shipped types, ESM‑only, zero external HTTP client (uses global `fetch`)
 
-### [🦉 See it in action on hoot.sh!](https://hoot.sh)
+> [!IMPORTANT]
+> Edge runtimes (e.g., Vercel Edge, Cloudflare Workers) do not support WHOIS (TCP 43 via `node:net`). Use RDAP‑only mode by setting `{ rdapOnly: true }`.
+
+> [!TIP]
+> See `rdapper` in action on [**Domainstack**](https://domainstack.io)!
 
 ## Install
 
@@ -64,9 +69,9 @@ echo "example.com" | npx rdapper
 
 ### Edge runtimes (e.g., Vercel Edge)
 
-WHOIS requires a raw TCP connection over port 43 via `node:net`, which is not available on edge runtimes. This package lazily loads `node:net` only when the WHOIS code path runs. To use rdapper safely on edge:
+WHOIS requires a raw TCP connection over port 43 via `node:net`, which is not available on edge runtimes. rdapper lazily loads `node:net` only when the WHOIS path is taken.
 
-- Prefer RDAP only:
+- Prefer RDAP only on edge:
 
 ```ts
 import { lookupDomain } from "rdapper";
@@ -74,7 +79,7 @@ import { lookupDomain } from "rdapper";
 const res = await lookupDomain("example.com", { rdapOnly: true });
 ```
 
-- If `rdapOnly` is omitted and the code path reaches WHOIS on edge, rdapper throws a clear runtime error indicating WHOIS is unsupported on edge and to run in Node or set `rdapOnly: true`.
+- If `rdapOnly` is omitted and the code path reaches WHOIS on edge, rdapper throws a clear runtime error advising to run in Node or set `{ rdapOnly: true }`.
 
 ### Options
 
@@ -98,7 +103,7 @@ The exact presence of fields depends on registry/registrar data and whether RDAP
 ```ts
 interface DomainRecord {
   domain: string;             // normalized name (unicode when available)
-  tld: string;                // terminal TLD label (e.g., "com")
+  tld: string;                // public suffix (can be multi-label, e.g., "com", "co.uk")
   isRegistered: boolean;      // availability heuristic (WHOIS) or true (RDAP)
   isIDN?: boolean;            // uses punycode labels (xn--)
   unicodeName?: string;       // RDAP unicodeName when provided
@@ -152,7 +157,7 @@ interface DomainRecord {
   }>;
   privacyEnabled?: boolean;   // registrant appears privacy-redacted based on keyword heuristics
   whoisServer?: string;       // authoritative WHOIS queried (if any)
-  rdapServers?: string[];     // RDAP base URLs tried
+  rdapServers?: string[];     // RDAP URLs tried (bootstrap bases and related/entity links)
   rawRdap?: unknown;          // raw RDAP JSON (only when options.includeRaw)
   rawWhois?: string;          // raw WHOIS text (only when options.includeRaw)
   source: "rdap" | "whois";   // which path produced data
@@ -191,13 +196,13 @@ Timeouts are enforced per request using a simple race against `timeoutMs` (defau
 
 ## Development
 
-- Build: `npm run build`
-- Test: `npm test` (Vitest)
+- Build: `npm run build` ([tsdown](https://tsdown.dev/))
+- Test: `npm test` ([Vitest](https://vitest.dev/))
   - By default, tests are offline/deterministic.
-  - Watch mode: `npm run test:watch`
-  - Coverage: `npm run test:coverage`
-  - Smoke tests that hit the network are gated by `SMOKE=1`, e.g. `SMOKE=1 npm run test:smoke`.
-- Lint/format: `npm run lint` (Biome)
+  - Watch mode: `npm run dev`
+  - Coverage: `npm run test:run -- --coverage`
+  - Smoke tests that hit the network are gated by `SMOKE=1`, e.g. `SMOKE=1 npm test`.
+- Lint/format: `npm run lint` ([Biome](https://biomejs.dev/))
 
 Project layout:
 
@@ -214,7 +219,7 @@ Project layout:
 - Some TLDs provide no RDAP service; `rdapOnly: true` will fail for them.
 - Registries may throttle or block WHOIS; respect rate limits and usage policies.
 - Field presence depends on source and privacy policies (e.g., redaction/withholding).
-- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). If you need behavior closer to `psl` that considers private suffixes, see the `allowPrivateDomains` option in the `tldts` docs (rdapper currently sticks to ICANN‑only by default). See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
+- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). You can pass options through to `tldts` via `toRegistrableDomain`/`getDomainParts`/`getDomainTld` (e.g., `allowPrivateDomains`) to customize behavior. See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
 
 ## License
 
