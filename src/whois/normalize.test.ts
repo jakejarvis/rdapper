@@ -105,6 +105,40 @@ Domain expires:             31-Jul-2026
   expect(rec.expirationDate).toBe("2026-07-31T00:00:00Z");
 });
 
+test("WHOIS .it uses 'Expire Date' for expiration", () => {
+  const text = `
+Domain:                 EXAMPLE.IT
+Registrar:              Registrar S.p.A.
+Expire Date:            2026-01-20
+Last Update:            2025-01-10
+`;
+  const rec = normalizeWhois("example.it", "it", text, "whois.nic.it");
+  expect(rec.expirationDate).toBe("2026-01-20T00:00:00Z");
+});
+
+test("WHOIS .cn uses 'Registration Time' and 'Expiration Time'", () => {
+  const text = `
+Domain Name: example.cn
+ROID: 20200102s10001s00000000-cn
+Registration Time: 2020-01-02 03:04:05
+Expiration Time: 2031-01-02 03:04:05
+`;
+  const rec = normalizeWhois("example.cn", "cn", text, "whois.cnnic.cn");
+  expect(rec.creationDate).toBe("2020-01-02T03:04:05Z");
+  expect(rec.expirationDate).toBe("2031-01-02T03:04:05Z");
+});
+
+test("WHOIS with bare 'expires' key is recognized", () => {
+  const text = `
+domain: example.in.ua
+created: 2020-01-02 03:04:05+03
+expires: 2030-01-02 03:04:05+03
+`;
+  const rec = normalizeWhois("example.in.ua", "in.ua", text, "whois.in.ua");
+  expect(Boolean(rec.expirationDate)).toBe(true);
+  expect(rec.expirationDate).toBe("2030-01-02T00:04:05Z");
+});
+
 test("Privacy redacted WHOIS normalizes without contacts", () => {
   const text = `
 Domain Name: EXAMPLE.COM

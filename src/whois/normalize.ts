@@ -31,12 +31,15 @@ export function normalizeWhois(
     "domain create date",
     "created",
     "registered",
+    // CNNIC (.cn)
+    "registration time",
     // EDUCAUSE (.edu)
     "domain record activated",
   ]);
   const updatedDate = anyValue(map, [
     "updated date",
     "last updated",
+    "last update",
     "last modified",
     "modified",
     // EDUCAUSE (.edu)
@@ -47,6 +50,10 @@ export function normalizeWhois(
     "registry expiration date",
     "expiry date",
     "expiration date",
+    // ccTLDs like .it use "Expire Date"
+    "expire date",
+    // CNNIC (.cn)
+    "expiration time",
     // Registrar-side synonyms commonly seen after referrals
     "registrar registration expiration date",
     "registrar registration expiry date",
@@ -56,6 +63,8 @@ export function normalizeWhois(
     "domain expires",
     "paid-till",
     "expires on",
+    // Some registries use a bare "expires" key
+    "expires",
     "renewal date",
   ]);
 
