@@ -1,5 +1,4 @@
 import { toISO } from "../lib/dates";
-import { isWhoisAvailable } from "../lib/domain";
 import { isPrivacyName } from "../lib/privacy";
 import { parseKeyValueLines, uniq } from "../lib/text";
 import type {
@@ -8,6 +7,33 @@ import type {
   Nameserver,
   RegistrarInfo,
 } from "../types";
+
+// Common WHOIS availability phrases seen across registries/registrars
+const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
+  /\bno match\b/i,
+  /\bnot found\b/i,
+  /\bno entries found\b/i,
+  /\bno data found\b/i,
+  /\bavailable for registration\b/i,
+  /\bdomain\s+available\b/i,
+  /\bdomain status[:\s]+available\b/i,
+  /\bobject does not exist\b/i,
+  /\bthe queried object does not exist\b/i,
+  // Common variants across ccTLDs/registrars
+  /\bstatus:\s*free\b/i,
+  /\bstatus:\s*available\b/i,
+  /\bno object found\b/i,
+  /\bnicht gefunden\b/i,
+  /\bpending release\b/i, // often signals not registered/being deleted
+];
+
+/**
+ * Best-effort heuristic to determine if a WHOIS response indicates the domain is available.
+ */
+export function isAvailableByWhois(text: string | undefined): boolean {
+  if (!text) return false;
+  return WHOIS_AVAILABLE_PATTERNS.some((re) => re.test(text));
+}
 
 /**
  * Convert raw WHOIS text into our normalized DomainRecord.
@@ -163,7 +189,7 @@ export function normalizeWhois(
   const record: DomainRecord = {
     domain,
     tld,
-    isRegistered: !isWhoisAvailable(whoisText),
+    isRegistered: !isAvailableByWhois(whoisText),
     isIDN: /(^|\.)xn--/i.test(domain),
     unicodeName: undefined,
     punycodeName: undefined,

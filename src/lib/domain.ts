@@ -3,7 +3,7 @@ import { parse } from "tldts";
 type ParseOptions = Parameters<typeof parse>[1];
 
 /**
- * Parse a domain into its parts. Accepts options which are passed to tldts.parse().
+ * Parse a domain into its parts. Passes options to `tldts.parse()`.
  * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
 export function getDomainParts(
@@ -13,7 +13,10 @@ export function getDomainParts(
   return parse(domain, { ...opts });
 }
 
-/** Get the TLD (ICANN-only public suffix) of a domain. */
+/**
+ * Get the TLD (ICANN-only public suffix) of a domain. Passes options to `tldts.parse()`.
+ * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
+ */
 export function getDomainTld(
   domain: string,
   opts?: ParseOptions,
@@ -47,7 +50,9 @@ export function punyToUnicode(domain: string): string {
 
 /**
  * Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1).
- * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs).
+ * Passes options to `tldts.parse()`.
+ * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs)
+ * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
 export function toRegistrableDomain(
   input: string,
@@ -68,28 +73,4 @@ export function toRegistrableDomain(
   const domain = result.domain ?? "";
   if (domain === "") return null;
   return domain.toLowerCase();
-}
-
-// Common WHOIS availability phrases seen across registries/registrars
-const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
-  /\bno match\b/i,
-  /\bnot found\b/i,
-  /\bno entries found\b/i,
-  /\bno data found\b/i,
-  /\bavailable for registration\b/i,
-  /\bdomain\s+available\b/i,
-  /\bdomain status[:\s]+available\b/i,
-  /\bobject does not exist\b/i,
-  /\bthe queried object does not exist\b/i,
-  // Common variants across ccTLDs/registrars
-  /\bstatus:\s*free\b/i,
-  /\bstatus:\s*available\b/i,
-  /\bno object found\b/i,
-  /\bnicht gefunden\b/i,
-  /\bpending release\b/i, // often signals not registered/being deleted
-];
-
-export function isWhoisAvailable(text: string | undefined): boolean {
-  if (!text) return false;
-  return WHOIS_AVAILABLE_PATTERNS.some((re) => re.test(text));
 }

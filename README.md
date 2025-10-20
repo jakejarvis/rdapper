@@ -23,21 +23,12 @@ npm install rdapper
 ## Quick Start
 
 ```ts
-import { lookupDomain } from "rdapper";
+import { lookup } from "rdapper";
 
-const { ok, record, error } = await lookupDomain("example.com");
+const { ok, record, error } = await lookup("example.com");
 
 if (!ok) throw new Error(error);
 console.log(record); // normalized DomainRecord
-```
-
-Also available:
-
-```ts
-import { isRegistered, isAvailable } from "rdapper";
-
-await isRegistered("example.com"); // => true
-await isAvailable("likely-unregistered-thing-320485230458.com"); // => false
 ```
 
 Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1):
@@ -50,11 +41,25 @@ toRegistrableDomain("spark-public.s3.amazonaws.com");   // => "amazonaws.com" (I
 toRegistrableDomain("192.168.0.1");                      // => null
 ```
 
+Convenience helpers to quickly check availability:
+
+```ts
+import { isRegistered, isAvailable } from "rdapper";
+
+await isRegistered("example.com"); // => true
+await isRegistered("likely-unregistered-thing-320485230458.com"); // => false
+await isAvailable("example.com"); // => false
+await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
+```
+
 ## API
 
-- `lookupDomain(domain, options?) => Promise<LookupResult>`
+- `lookup(domain, options?) => Promise<LookupResult>`
   - Tries RDAP first if supported by the domain’s TLD; if unavailable or fails, falls back to WHOIS (unless toggled off).
   - Result is `{ ok: boolean, record?: DomainRecord, error?: string }`.
+- `toRegistrableDomain(input, options?) => string | null`
+  - Normalizes a domain or URL to its registrable domain (eTLD+1).
+  - Returns the registrable domain string, or `null` for IPs/invalid input; [options](https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts) are forwarded to `tldts` (e.g., `allowPrivateDomains`).
 - `isRegistered(domain, options?) => Promise<boolean>`
 - `isAvailable(domain, options?) => Promise<boolean>`
 
@@ -74,9 +79,9 @@ WHOIS requires a raw TCP connection over port 43 via `node:net`, which is not av
 - Prefer RDAP only on edge:
 
 ```ts
-import { lookupDomain } from "rdapper";
+import { lookup } from "rdapper";
 
-const res = await lookupDomain("example.com", { rdapOnly: true });
+const res = await lookup("example.com", { rdapOnly: true });
 ```
 
 - If `rdapOnly` is omitted and the code path reaches WHOIS on edge, rdapper throws a clear runtime error advising to run in Node or set `{ rdapOnly: true }`.

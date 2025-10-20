@@ -20,7 +20,7 @@ import {
  * High-level lookup that prefers RDAP and falls back to WHOIS.
  * Ensures a standardized DomainRecord, independent of the source.
  */
-export async function lookupDomain(
+export async function lookup(
   domain: string,
   opts?: LookupOptions,
 ): Promise<LookupResult> {
@@ -118,27 +118,36 @@ export async function lookupDomain(
   }
 }
 
-/** Determine if a domain appears available (not registered).
- * Performs a lookup and resolves to a boolean. Rejects on lookup error. */
+/**
+ * Determine if a domain appears available (not registered).
+ * Performs a lookup and resolves to a boolean. Rejects on lookup error.
+ */
 export async function isAvailable(
   domain: string,
   opts?: LookupOptions,
 ): Promise<boolean> {
-  const res = await lookupDomain(domain, opts);
+  const res = await lookup(domain, opts);
   if (!res.ok || !res.record) throw new Error(res.error || "Lookup failed");
   return res.record.isRegistered === false;
 }
 
-/** Determine if a domain appears registered.
- * Performs a lookup and resolves to a boolean. Rejects on lookup error. */
+/**
+ * Determine if a domain appears registered.
+ * Performs a lookup and resolves to a boolean. Rejects on lookup error.
+ */
 export async function isRegistered(
   domain: string,
   opts?: LookupOptions,
 ): Promise<boolean> {
-  const res = await lookupDomain(domain, opts);
+  const res = await lookup(domain, opts);
   if (!res.ok || !res.record) throw new Error(res.error || "Lookup failed");
   return res.record.isRegistered === true;
 }
+
+/**
+ * @deprecated Use `lookup` instead.
+ */
+export const lookupDomain = lookup;
 
 export {
   getDomainParts,

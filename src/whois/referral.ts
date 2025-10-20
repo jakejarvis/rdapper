@@ -1,8 +1,8 @@
-import { isWhoisAvailable } from "../lib/domain";
 import type { LookupOptions } from "../types";
 import type { WhoisQueryResult } from "./client";
 import { whoisQuery } from "./client";
 import { extractWhoisReferral } from "./discovery";
+import { isAvailableByWhois } from "./normalize";
 
 /**
  * Follow registrar WHOIS referrals up to a configured hop limit.
@@ -30,8 +30,8 @@ export async function followWhoisReferrals(
     try {
       const res = await whoisQuery(next, domain, opts);
       // Prefer authoritative TLD response when registrar contradicts availability
-      const registeredBefore = !isWhoisAvailable(current.text);
-      const registeredAfter = !isWhoisAvailable(res.text);
+      const registeredBefore = !isAvailableByWhois(current.text);
+      const registeredAfter = !isAvailableByWhois(res.text);
       if (registeredBefore && !registeredAfter) {
         // Registrar claims availability but TLD shows registered: keep TLD
         break;
@@ -74,8 +74,8 @@ export async function collectWhoisReferralChain(
     try {
       const res = await whoisQuery(next, domain, opts);
       // If registrar claims availability while TLD indicated registered, stop.
-      const registeredBefore = !isWhoisAvailable(current.text);
-      const registeredAfter = !isWhoisAvailable(res.text);
+      const registeredBefore = !isAvailableByWhois(current.text);
+      const registeredAfter = !isAvailableByWhois(res.text);
       if (registeredBefore && !registeredAfter) {
         // Do not adopt or append contradictory registrar; keep authoritative TLD only.
         break;
