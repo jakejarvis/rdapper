@@ -8,6 +8,17 @@ export interface WhoisQueryResult {
 }
 
 /**
+ * Some WHOIS servers default to non-English responses. This mapping allows automatic
+ * query transformation to request English-only output for easier parsing.
+ *
+ * To add new servers: Add an entry with the hostname and transformation function:
+ *   "whois.example.org": (query) => `${query}/english`,
+ */
+const WHOIS_QUERY_TRANSFORMERS: Record<string, (query: string) => string> = {
+  "whois.jprs.jp": (query) => `${query}/e`, // Append /e for English-only response
+};
+
+/**
  * Perform a WHOIS query against an RFC 3912 server over TCP 43.
  * Returns the raw text and the server used.
  */
@@ -19,8 +30,13 @@ export async function whoisQuery(
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const port = 43;
   const host = server.replace(/^whois:\/\//i, "");
+
+  // Transform query if server requires special formatting
+  const transformer = WHOIS_QUERY_TRANSFORMERS[host];
+  const transformedQuery = transformer ? transformer(query) : query;
+
   const text = await withTimeout(
-    queryTcp(host, port, query, options),
+    queryTcp(host, port, transformedQuery, options),
     timeoutMs,
     "WHOIS timeout",
   );
