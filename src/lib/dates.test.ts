@@ -27,3 +27,20 @@ test("toISO parses ISO and common whois formats", () => {
   const plus0530 = toISO("2025-03-23T10:53:03+05:30");
   expect(plus0530).toBe("2025-03-23T05:23:03Z");
 });
+
+test("toISO parses DD-MM-YYYY format (used by .il and .hk)", () => {
+  // Test the example from the issue
+  const ddmmyyyy1 = toISO("21-07-2026");
+  expect(ddmmyyyy1).toBe("2026-07-21T00:00:00Z");
+
+  // Test edge cases
+  const ddmmyyyy2 = toISO("01-01-2025");
+  expect(ddmmyyyy2).toBe("2025-01-01T00:00:00Z");
+
+  const ddmmyyyy3 = toISO("31-12-2025");
+  expect(ddmmyyyy3).toBe("2025-12-31T00:00:00Z");
+
+  // Ensure DD-MMM-YYYY (with month name) still works
+  const dmmmy = toISO("02-Jan-2023");
+  expect(dmmmy).toBe("2023-01-02T00:00:00Z");
+});

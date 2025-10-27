@@ -16,6 +16,8 @@ export function toISO(
     /^(\d{4})\/(\d{2})\/(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:Z|([+-]\d{2})(?::?(\d{2}))?)?$/,
     // 02-Jan-2023
     /^(\d{2})-([A-Za-z]{3})-(\d{4})$/,
+    // 21-07-2026 (DD-MM-YYYY used by .il, .hk)
+    /^(\d{2})-(\d{2})-(\d{4})$/,
     // Jan 02 2023
     /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/,
   ];
@@ -93,9 +95,15 @@ function parseDateWithRegex(
       }
       return new Date(dt);
     }
-    // If the matched string contains hyphens, treat as DD-MMM-YYYY
+    // If the matched string contains hyphens, check if numeric (DD-MM-YYYY) or alpha (DD-MMM-YYYY)
     if (m[0].includes("-")) {
       const [_, dd, monStr, yyyy] = m;
+      // Check if month component is numeric (DD-MM-YYYY) or alphabetic (DD-MMM-YYYY)
+      if (/^\d+$/.test(monStr)) {
+        // DD-MM-YYYY format (e.g., 21-07-2026)
+        return new Date(Date.UTC(Number(yyyy), Number(monStr) - 1, Number(dd)));
+      }
+      // DD-MMM-YYYY format (e.g., 02-Jan-2023)
       const mon = monthMap[monStr.toLowerCase()];
       return new Date(Date.UTC(Number(yyyy), mon, Number(dd)));
     }
