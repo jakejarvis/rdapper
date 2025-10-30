@@ -110,6 +110,9 @@ export async function lookup(
       normalizeWhois(domain, tld, r.text, r.serverQueried, !!opts?.includeRaw),
     );
     const [first, ...rest] = normalizedRecords;
+    if (!first) {
+      return { ok: false, error: "No WHOIS data retrieved" };
+    }
     const mergedRecord = rest.length ? mergeWhoisRecords(first, rest) : first;
     return { ok: true, record: mergedRecord };
   } catch (err: unknown) {

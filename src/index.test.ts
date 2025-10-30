@@ -64,7 +64,7 @@ vi.mock("./lib/domain.js", async () => {
   };
 });
 
-import { lookupDomain } from ".";
+import { lookup } from ".";
 import * as rdapClient from "./rdap/client";
 import type { WhoisQueryResult } from "./whois/client";
 import * as whoisClient from "./whois/client";
@@ -72,7 +72,7 @@ import * as discovery from "./whois/discovery";
 import * as whoisReferral from "./whois/referral";
 
 // 1) Orchestration tests (RDAP path, fallback, whoisOnly)
-describe("lookupDomain orchestration", () => {
+describe("lookup orchestration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue(
@@ -81,7 +81,7 @@ describe("lookupDomain orchestration", () => {
   });
 
   it("uses RDAP when available and does not call WHOIS", async () => {
-    const res = await lookupDomain("example.com", { timeoutMs: 200 });
+    const res = await lookup("example.com", { timeoutMs: 200 });
     expect(res.ok, res.error).toBe(true);
     expect(res.record?.source).toBe("rdap");
     expect(vi.mocked(rdapClient.fetchRdapDomain)).toHaveBeenCalledOnce();
@@ -92,14 +92,14 @@ describe("lookupDomain orchestration", () => {
     vi.mocked(rdapClient.fetchRdapDomain).mockRejectedValueOnce(
       new Error("rdap down"),
     );
-    const res = await lookupDomain("example.com", { timeoutMs: 200 });
+    const res = await lookup("example.com", { timeoutMs: 200 });
     expect(res.ok, res.error).toBe(true);
     expect(res.record?.source).toBe("whois");
     expect(vi.mocked(whoisClient.whoisQuery)).toHaveBeenCalledOnce();
   });
 
   it("respects whoisOnly to skip RDAP entirely", async () => {
-    const res = await lookupDomain("example.com", {
+    const res = await lookup("example.com", {
       timeoutMs: 200,
       whoisOnly: true,
     });
@@ -124,7 +124,7 @@ describe("WHOIS referral & includeRaw", () => {
     const original = vi.mocked(whoisReferral.collectWhoisReferralChain);
     original.mockClear();
 
-    const res = await lookupDomain("example.com", {
+    const res = await lookup("example.com", {
       timeoutMs: 200,
       whoisOnly: true,
       followWhoisReferral: false,
@@ -141,7 +141,7 @@ describe("WHOIS referral & includeRaw", () => {
       }),
     );
 
-    const res = await lookupDomain("example.com", {
+    const res = await lookup("example.com", {
       timeoutMs: 200,
       whoisOnly: true,
       followWhoisReferral: true,

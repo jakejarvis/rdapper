@@ -40,6 +40,6 @@ describe("WHOIS referral contradiction handling", () => {
     expect(Array.isArray(chain)).toBe(true);
     // Mocked registrar is contradictory, so chain should contain only the TLD response
     expect(chain.length).toBe(1);
-    expect(chain[0].serverQueried).toBe("whois.nic.io");
+    expect(chain[0]?.serverQueried).toBe("whois.nic.io");
   });
 });

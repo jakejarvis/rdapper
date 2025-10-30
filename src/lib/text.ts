@@ -12,7 +12,7 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
     if (!line.trim()) continue;
     // Bracketed form: [Key] value  (common in .jp and some ccTLDs)
     const bracket = line.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
-    if (bracket) {
+    if (bracket?.[1] !== undefined && bracket?.[2] !== undefined) {
       const key = bracket[1].trim().toLowerCase();
       const value = bracket[2].trim();
       const list = map.get(key) ?? [];

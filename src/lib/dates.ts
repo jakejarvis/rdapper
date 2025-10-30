@@ -75,6 +75,7 @@ function parseDateWithRegex(
     // If the matched string contains time components, parse as Y-M-D H:M:S
     if (m[0].includes(":")) {
       const [_, y, mo, d, hh, mm, ss, offH, offM] = m;
+      if (!y || !mo || !d || !hh || !mm || !ss) return undefined;
       // Base time as UTC
       let dt = Date.UTC(
         Number(y),
@@ -98,6 +99,7 @@ function parseDateWithRegex(
     // If the matched string contains hyphens, check if numeric (DD-MM-YYYY) or alpha (DD-MMM-YYYY)
     if (m[0].includes("-")) {
       const [_, dd, monStr, yyyy] = m;
+      if (!monStr || !dd || !yyyy) return undefined;
       // Check if month component is numeric (DD-MM-YYYY) or alphabetic (DD-MMM-YYYY)
       if (/^\d+$/.test(monStr)) {
         // DD-MM-YYYY format (e.g., 21-07-2026)
@@ -109,6 +111,7 @@ function parseDateWithRegex(
     }
     // Otherwise treat as MMM DD YYYY
     const [_, monStr, dd, yyyy] = m;
+    if (!monStr || !dd || !yyyy) return undefined;
     const mon = monthMap[monStr.toLowerCase()];
     return new Date(Date.UTC(Number(yyyy), mon, Number(dd)));
   } catch {

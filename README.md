@@ -86,6 +86,338 @@ const res = await lookup("example.com", { rdapOnly: true });
 
 - If `rdapOnly` is omitted and the code path reaches WHOIS on edge, rdapper throws a clear runtime error advising to run in Node or set `{ rdapOnly: true }`.
 
+### Bootstrap Data Caching
+
+By default, rdapper fetches IANA's RDAP bootstrap registry from [`https://data.iana.org/rdap/dns.json`](https://data.iana.org/rdap/dns.json) on every RDAP lookup to discover the authoritative RDAP servers for a given TLD. While this ensures you always have up-to-date server mappings, it also adds latency and a network dependency to each lookup.
+
+For production applications that perform many domain lookups, you can take control of bootstrap data caching by fetching and caching the data yourself, then passing it to rdapper using the `customBootstrapData` option. This eliminates redundant network requests and gives you full control over cache invalidation.
+
+#### Why cache bootstrap data?
+
+- **Performance**: Eliminate an extra HTTP request per lookup (or per TLD if you're looking up many domains)
+- **Reliability**: Reduce dependency on IANA's availability during lookups
+- **Control**: Manage cache TTL and invalidation according to your needs (IANA updates this file infrequently)
+- **Cost**: Reduce bandwidth and API calls in high-volume scenarios
+
+#### Example: In-memory caching with TTL
+
+```ts
+import { lookup, type BootstrapData } from 'rdapper';
+
+// Simple in-memory cache with TTL
+let cachedBootstrap: BootstrapData | null = null;
+let cacheExpiry = 0;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+async function getBootstrapData(): Promise<BootstrapData> {
+  const now = Date.now();
+  
+  // Return cached data if still valid
+  if (cachedBootstrap && now < cacheExpiry) {
+    return cachedBootstrap;
+  }
+  
+  // Fetch fresh data
+  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  if (!response.ok) {
+    throw new Error(`Failed to load bootstrap data: ${response.status} ${response.statusText}`);
+  }
+  const data: BootstrapData = await response.json();
+  
+  // Update cache
+  cachedBootstrap = data;
+  cacheExpiry = now + CACHE_TTL_MS;
+  
+  return data;
+}
+
+// Use the cached bootstrap data in lookups
+const bootstrapData = await getBootstrapData();
+const result = await lookup('example.com', {
+  customBootstrapData: bootstrapData
+});
+```
+
+#### Example: Redis caching
+
+```ts
+import { lookup, type BootstrapData } from 'rdapper';
+import { createClient } from 'redis';
+
+const redis = createClient();
+await redis.connect();
+
+const CACHE_KEY = 'rdap:bootstrap:dns';
+const CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+
+async function getBootstrapData(): Promise<BootstrapData> {
+  // Try to get from Redis first
+  const cached = await redis.get(CACHE_KEY);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+  
+  // Fetch fresh data
+  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  if (!response.ok) {
+    throw new Error(`Failed to load bootstrap data: ${response.status} ${response.statusText}`);
+  }
+  const data: BootstrapData = await response.json();
+  
+  // Store in Redis with TTL
+  await redis.setEx(CACHE_KEY, CACHE_TTL_SECONDS, JSON.stringify(data));
+  
+  return data;
+}
+
+// Use the cached bootstrap data in lookups
+const bootstrapData = await getBootstrapData();
+const result = await lookup('example.com', {
+  customBootstrapData: bootstrapData
+});
+```
+
+#### Example: Filesystem caching
+
+```ts
+import { lookup, type BootstrapData } from 'rdapper';
+import { readFile, writeFile, stat } from 'node:fs/promises';
+
+const CACHE_FILE = './cache/rdap-bootstrap.json';
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+async function getBootstrapData(): Promise<BootstrapData> {
+  try {
+    // Check if cache file exists and is fresh
+    const stats = await stat(CACHE_FILE);
+    const age = Date.now() - stats.mtimeMs;
+    
+    if (age < CACHE_TTL_MS) {
+      const cached = await readFile(CACHE_FILE, 'utf-8');
+      return JSON.parse(cached);
+    }
+  } catch {
+    // Cache file doesn't exist or is unreadable, will fetch fresh
+  }
+  
+  // Fetch fresh data
+  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  if (!response.ok) {
+    throw new Error(`Failed to load bootstrap data: ${response.status} ${response.statusText}`);
+  }
+  const data: BootstrapData = await response.json();
+  
+  // Write to cache file
+  await writeFile(CACHE_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  
+  return data;
+}
+
+// Use the cached bootstrap data in lookups
+const bootstrapData = await getBootstrapData();
+const result = await lookup('example.com', {
+  customBootstrapData: bootstrapData
+});
+```
+
+#### Bootstrap data structure
+
+The `BootstrapData` type matches IANA's published format:
+
+```ts
+interface BootstrapData {
+  version: string;           // e.g., "1.0"
+  publication: string;       // ISO 8601 timestamp
+  description?: string;
+  services: string[][][];    // Array of [TLDs, base URLs] tuples
+}
+```
+
+See the full documentation at [RFC 7484 - Finding the Authoritative RDAP Service](https://datatracker.ietf.org/doc/html/rfc7484).
+
+**Note**: The bootstrap data structure is stable and rarely changes. IANA updates the _contents_ (server mappings) periodically as TLDs are added or servers change, but a 24-hour cache TTL is typically safe for most applications.
+
+### Custom Fetch Implementation
+
+For advanced use cases, rdapper allows you to provide a custom `fetch` implementation that will be used for **all HTTP requests** in the library. This enables powerful patterns for caching, logging, retry logic, and more.
+
+#### What requests are affected?
+
+Your custom fetch will be used for:
+- **RDAP bootstrap registry requests** (fetching `dns.json` from IANA, unless `customBootstrapData` is provided)
+- **RDAP domain lookups** (querying RDAP servers for domain data)
+- **RDAP related/entity link requests** (following links to registrar information)
+
+#### Why use custom fetch?
+
+- **Caching**: Implement sophisticated caching strategies for all RDAP requests
+- **Logging & Monitoring**: Track all outgoing requests and responses
+- **Retry Logic**: Add exponential backoff for failed requests
+- **Rate Limiting**: Control request frequency to respect API limits
+- **Proxies & Authentication**: Route requests through proxies or add auth headers
+- **Testing**: Inject mock responses without network calls
+
+#### Example 1: Simple in-memory cache
+
+```ts
+import { lookup } from 'rdapper';
+
+const cache = new Map<string, Response>();
+
+const cachedFetch: typeof fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input.toString();
+  
+  // Check cache first
+  if (cache.has(url)) {
+    console.log('[Cache Hit]', url);
+    return cache.get(url)!.clone();
+  }
+  
+  // Fetch and cache
+  console.log('[Cache Miss]', url);
+  const response = await fetch(input, init);
+  cache.set(url, response.clone());
+  return response;
+};
+
+const result = await lookup('example.com', { customFetch: cachedFetch });
+```
+
+#### Example 2: Request logging and monitoring
+
+```ts
+import { lookup } from 'rdapper';
+
+const loggingFetch: typeof fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input.toString();
+  const start = Date.now();
+  
+  console.log(`[→] ${init?.method || 'GET'} ${url}`);
+  
+  try {
+    const response = await fetch(input, init);
+    const duration = Date.now() - start;
+    console.log(`[←] ${response.status} ${url} (${duration}ms)`);
+    return response;
+  } catch (error) {
+    const duration = Date.now() - start;
+    console.error(`[✗] ${url} failed after ${duration}ms:`, error);
+    throw error;
+  }
+};
+
+const result = await lookup('example.com', { customFetch: loggingFetch });
+```
+
+#### Example 3: Retry logic with exponential backoff
+
+```ts
+import { lookup } from 'rdapper';
+
+async function fetchWithRetry(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(input, init);
+      
+      // Retry on 5xx errors
+      if (response.status >= 500 && attempt < maxRetries) {
+        const delay = Math.min(1000 * 2 ** attempt, 10000);
+        console.log(`Retrying after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * 2 ** attempt, 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
+const result = await lookup('example.com', { customFetch: fetchWithRetry });
+```
+
+#### Example 4: HTTP caching with cache-control headers
+
+```ts
+import { lookup } from 'rdapper';
+
+interface CachedResponse {
+  response: Response;
+  expiresAt: number;
+}
+
+const httpCache = new Map<string, CachedResponse>();
+
+const httpCachingFetch: typeof fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input.toString();
+  const now = Date.now();
+  
+  // Check if we have a valid cached response
+  const cached = httpCache.get(url);
+  if (cached && cached.expiresAt > now) {
+    return cached.response.clone();
+  }
+  
+  // Fetch fresh response
+  const response = await fetch(input, init);
+  
+  // Parse Cache-Control header
+  const cacheControl = response.headers.get('cache-control');
+  if (cacheControl) {
+    const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
+    if (maxAgeMatch) {
+      const maxAge = parseInt(maxAgeMatch[1], 10);
+      httpCache.set(url, {
+        response: response.clone(),
+        expiresAt: now + maxAge * 1000,
+      });
+    }
+  }
+  
+  return response;
+};
+
+const result = await lookup('example.com', { customFetch: httpCachingFetch });
+```
+
+#### Example 5: Combining with customBootstrapData
+
+You can use both `customFetch` and `customBootstrapData` together for maximum control:
+
+```ts
+import { lookup, type BootstrapData } from 'rdapper';
+
+// Pre-load bootstrap data (no fetch needed for this)
+const bootstrapData: BootstrapData = await getFromCache('bootstrap');
+
+// Use custom fetch for all other RDAP requests
+const cachedFetch: typeof fetch = async (input, init) => {
+  // Your caching logic for RDAP domain and entity lookups
+  return fetch(input, init);
+};
+
+const result = await lookup('example.com', {
+  customBootstrapData: bootstrapData,
+  customFetch: cachedFetch,
+});
+```
+
+**Note**: When `customBootstrapData` is provided, the bootstrap registry will not be fetched, so your custom fetch will only be used for RDAP domain and entity/related link requests.
+
 ### Options
 
 - `timeoutMs?: number` – Total timeout budget per network operation (default `15000`).
@@ -96,7 +428,9 @@ const res = await lookup("example.com", { rdapOnly: true });
 - `rdapFollowLinks?: boolean` – Follow related/entity RDAP links to enrich data (default `true`).
 - `maxRdapLinkHops?: number` – Maximum RDAP related link hops to follow (default `2`).
 - `rdapLinkRels?: string[]` – RDAP link rel values to consider (default `["related","entity","registrar","alternate"]`).
-- `customBootstrapUrl?: string` – Override RDAP bootstrap URL.
+- `customBootstrapData?: BootstrapData` – Pre-loaded RDAP bootstrap data for caching control (see [Bootstrap Data Caching](#bootstrap-data-caching)).
+- `customBootstrapUrl?: string` – Override RDAP bootstrap URL (ignored if `customBootstrapData` is provided).
+- `customFetch?: FetchLike` – Custom fetch implementation for all HTTP requests (see [Custom Fetch Implementation](#custom-fetch-implementation)).
 - `whoisHints?: Record<string, string>` – Override/add authoritative WHOIS per TLD (keys are lowercase TLDs, values may include or omit `whois://`).
 - `includeRaw?: boolean` – Include `rawRdap`/`rawWhois` in the returned record (default `false`).
 - `signal?: AbortSignal` – Optional cancellation signal.
