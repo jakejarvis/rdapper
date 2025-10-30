@@ -54,17 +54,26 @@ export async function getRdapBaseUrlsForTld(
     // Use custom fetch implementation if provided for caching/logging/monitoring
     const fetchFn = resolveFetch(options);
     const bootstrapUrl = options?.customBootstrapUrl ?? DEFAULT_BOOTSTRAP_URL;
-    const res = await withTimeout(
-      fetchFn(bootstrapUrl, {
-        method: "GET",
-        headers: { accept: "application/json" },
-        signal: options?.signal,
-      }),
-      options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      "RDAP bootstrap timeout",
-    );
-    if (!res.ok) return [];
-    data = (await res.json()) as BootstrapData;
+    try {
+      const res = await withTimeout(
+        fetchFn(bootstrapUrl, {
+          method: "GET",
+          headers: { accept: "application/json" },
+          signal: options?.signal,
+        }),
+        options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        "RDAP bootstrap timeout",
+      );
+      if (!res.ok) return [];
+      data = (await res.json()) as BootstrapData;
+    } catch (err: unknown) {
+      // Preserve caller cancellation behavior - rethrow if explicitly aborted
+      if (err instanceof Error && err.name === "AbortError") {
+        throw err;
+      }
+      // Network, timeout, or JSON parse errors - return empty array to fall back to WHOIS
+      return [];
+    }
   }
 
   // Parse the bootstrap data to find matching base URLs for the TLD
