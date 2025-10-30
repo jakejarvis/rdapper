@@ -1,9 +1,7 @@
 import { withTimeout } from "../lib/async";
-import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { DEFAULT_BOOTSTRAP_URL, DEFAULT_TIMEOUT_MS } from "../lib/constants";
 import { resolveFetch } from "../lib/fetch";
 import type { BootstrapData, LookupOptions } from "../types";
-
-const DEFAULT_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json" as const;
 
 /**
  * Resolve RDAP base URLs for a given TLD using IANA's bootstrap registry.
