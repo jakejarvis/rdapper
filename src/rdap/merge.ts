@@ -1,5 +1,6 @@
 import { withTimeout } from "../lib/async";
 import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { resolveFetch } from "../lib/fetch";
 import type { LookupOptions } from "../types";
 import { extractRdapRelatedLinks } from "./links";
 
@@ -102,8 +103,9 @@ async function fetchRdapUrl(
   url: string,
   options?: LookupOptions,
 ): Promise<{ url: string; json: unknown }> {
+  const fetchFn = resolveFetch(options);
   const res = await withTimeout(
-    fetch(url, {
+    fetchFn(url, {
       method: "GET",
       headers: { accept: "application/rdap+json, application/json" },
       signal: options?.signal,

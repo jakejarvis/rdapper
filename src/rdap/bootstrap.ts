@@ -1,5 +1,6 @@
 import { withTimeout } from "../lib/async";
 import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { resolveFetch } from "../lib/fetch";
 import type { BootstrapData, LookupOptions } from "../types";
 
 const DEFAULT_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json" as const;
@@ -37,12 +38,25 @@ export async function getRdapBaseUrlsForTld(
         'Invalid customBootstrapData: missing or invalid "services" array. See BootstrapData type for required structure.',
       );
     }
+    data.services.forEach((svc, idx) => {
+      if (
+        !Array.isArray(svc) ||
+        svc.length < 2 ||
+        !Array.isArray(svc[0]) ||
+        !Array.isArray(svc[1])
+      ) {
+        throw new Error(
+          `Invalid customBootstrapData: services[${idx}] must be a tuple of [string[], string[]].`,
+        );
+      }
+    });
   } else {
     // Priority 2 & 3: Fetch from custom URL or default IANA URL
-    const bootstrapUrl =
-      options?.customBootstrapUrl ?? DEFAULT_BOOTSTRAP_URL;
+    // Use custom fetch implementation if provided for caching/logging/monitoring
+    const fetchFn = resolveFetch(options);
+    const bootstrapUrl = options?.customBootstrapUrl ?? DEFAULT_BOOTSTRAP_URL;
     const res = await withTimeout(
-      fetch(bootstrapUrl, {
+      fetchFn(bootstrapUrl, {
         method: "GET",
         headers: { accept: "application/json" },
         signal: options?.signal,

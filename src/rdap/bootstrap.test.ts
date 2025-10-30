@@ -1,9 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { BootstrapData } from "../types";
 import { getRdapBaseUrlsForTld } from "./bootstrap";
 
-// Mock the fetch function
-global.fetch = vi.fn();
+// Mock the global fetch function
+beforeAll(() => {
+  vi.stubGlobal("fetch", vi.fn());
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("getRdapBaseUrlsForTld with customBootstrapData", () => {
   const validBootstrapData: BootstrapData = {
@@ -311,5 +325,129 @@ describe("getRdapBaseUrlsForTld with customBootstrapData", () => {
       );
     });
   });
-});
 
+  describe("custom fetch functionality", () => {
+    beforeEach(() => {
+      // Reset to default fetch mock behavior
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: async () => validBootstrapData,
+      } as Response);
+    });
+
+    it("should use customFetch when provided", async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => validBootstrapData,
+      } as Response);
+
+      const urls = await getRdapBaseUrlsForTld("com", { customFetch });
+
+      expect(urls).toEqual(["https://rdap.verisign.com/com/v1/"]);
+      expect(customFetch).toHaveBeenCalledWith(
+        "https://data.iana.org/rdap/dns.json",
+        expect.objectContaining({
+          method: "GET",
+          headers: { accept: "application/json" },
+        }),
+      );
+      expect(fetch).not.toHaveBeenCalled(); // global fetch should not be called
+    });
+
+    it("should pass custom fetch with customBootstrapUrl", async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => validBootstrapData,
+      } as Response);
+      const customUrl = "https://custom.example.com/bootstrap.json";
+
+      const urls = await getRdapBaseUrlsForTld("com", {
+        customFetch,
+        customBootstrapUrl: customUrl,
+      });
+
+      expect(urls).toEqual(["https://rdap.verisign.com/com/v1/"]);
+      expect(customFetch).toHaveBeenCalledWith(
+        customUrl,
+        expect.objectContaining({
+          method: "GET",
+          headers: { accept: "application/json" },
+        }),
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should use customFetch for caching scenario", async () => {
+      let callCount = 0;
+      const customFetch = vi.fn(async (_input, _init) => {
+        callCount++;
+        if (callCount === 1) {
+          // First call - return fresh data
+          return {
+            ok: true,
+            json: async () => validBootstrapData,
+          } as Response;
+        }
+        // Second call - simulate cache hit (don't call global fetch)
+        return {
+          ok: true,
+          json: async () => validBootstrapData,
+        } as Response;
+      });
+
+      // First call
+      const urls1 = await getRdapBaseUrlsForTld("com", { customFetch });
+      expect(urls1).toEqual(["https://rdap.verisign.com/com/v1/"]);
+      expect(customFetch).toHaveBeenCalledTimes(1);
+
+      // Second call with same custom fetch
+      const urls2 = await getRdapBaseUrlsForTld("com", { customFetch });
+      expect(urls2).toEqual(["https://rdap.verisign.com/com/v1/"]);
+      expect(customFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not use custom fetch when customBootstrapData is provided", async () => {
+      const customFetch = vi.fn();
+
+      const urls = await getRdapBaseUrlsForTld("com", {
+        customBootstrapData: validBootstrapData,
+        customFetch,
+      });
+
+      expect(urls).toEqual(["https://rdap.verisign.com/com/v1/"]);
+      expect(customFetch).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should handle custom fetch errors", async () => {
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      } as Response);
+
+      const urls = await getRdapBaseUrlsForTld("com", { customFetch });
+
+      expect(urls).toEqual([]);
+      expect(customFetch).toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("should respect signal with custom fetch", async () => {
+      const controller = new AbortController();
+      const signal = controller.signal;
+      const customFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => validBootstrapData,
+      } as Response);
+
+      await getRdapBaseUrlsForTld("com", { customFetch, signal });
+
+      expect(customFetch).toHaveBeenCalledWith(
+        "https://data.iana.org/rdap/dns.json",
+        expect.objectContaining({
+          signal,
+        }),
+      );
+    });
+  });
+});

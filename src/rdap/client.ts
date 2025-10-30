@@ -1,8 +1,7 @@
 import { withTimeout } from "../lib/async";
 import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { resolveFetch } from "../lib/fetch";
 import type { LookupOptions } from "../types";
-
-// Use global fetch (Node 18+). For large JSON we keep it simple.
 
 /**
  * Fetch RDAP JSON for a domain from a specific RDAP base URL.
@@ -17,8 +16,9 @@ export async function fetchRdapDomain(
     `domain/${encodeURIComponent(domain)}`,
     baseUrl,
   ).toString();
+  const fetchFn = resolveFetch(options);
   const res = await withTimeout(
-    fetch(url, {
+    fetchFn(url, {
       method: "GET",
       headers: { accept: "application/rdap+json, application/json" },
       signal: options?.signal,

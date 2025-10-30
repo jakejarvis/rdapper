@@ -281,6 +281,55 @@ export interface LookupOptions {
   customBootstrapData?: BootstrapData;
   /** Override IANA bootstrap URL (ignored if customBootstrapData is provided) */
   customBootstrapUrl?: string;
+  /**
+   * Custom fetch implementation to use for all HTTP requests.
+   *
+   * Provides complete control over how HTTP requests are made, enabling advanced use cases:
+   * - **Caching**: Cache bootstrap data, RDAP responses, and related link responses
+   * - **Logging**: Log all outgoing requests and responses for monitoring
+   * - **Retry Logic**: Implement custom retry strategies with exponential backoff
+   * - **Rate Limiting**: Control request frequency to respect API limits
+   * - **Proxies/Auth**: Route requests through proxies or add authentication headers
+   * - **Testing**: Inject mock responses for testing without network calls
+   *
+   * The custom fetch will be used for:
+   * - RDAP bootstrap registry requests (unless `customBootstrapData` is provided)
+   * - RDAP domain lookup requests
+   * - RDAP related/entity link requests
+   *
+   * If not provided, the global `fetch` function is used (Node.js 18+ or browser).
+   *
+   * @example
+   * ```ts
+   * import { lookup } from 'rdapper';
+   *
+   * // Example 1: Simple in-memory cache
+   * const cache = new Map<string, Response>();
+   * const cachedFetch: typeof fetch = async (input, init) => {
+   *   const key = typeof input === 'string' ? input : input.toString();
+   *   if (cache.has(key)) return cache.get(key)!.clone();
+   *   const response = await fetch(input, init);
+   *   cache.set(key, response.clone());
+   *   return response;
+   * };
+   *
+   * await lookup('example.com', { customFetch: cachedFetch });
+   *
+   * // Example 2: Request logging
+   * const loggingFetch: typeof fetch = async (input, init) => {
+   *   const url = typeof input === 'string' ? input : input.toString();
+   *   console.log('[Fetch]', url);
+   *   const response = await fetch(input, init);
+   *   console.log('[Response]', response.status, url);
+   *   return response;
+   * };
+   *
+   * await lookup('example.com', { customFetch: loggingFetch });
+   * ```
+   *
+   * @see {@link FetchLike} for the expected function signature
+   */
+  customFetch?: FetchLike;
   /** Override/add authoritative WHOIS per TLD */
   whoisHints?: Record<string, string>;
   /** Include rawRdap/rawWhois in results (default false) */
