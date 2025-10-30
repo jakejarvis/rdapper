@@ -75,6 +75,7 @@ function parseDateWithRegex(
     // If the matched string contains time components, parse as Y-M-D H:M:S
     if (m[0].includes(":")) {
       const [_, y, mo, d, hh, mm, ss, offH, offM] = m;
+      if (!y || !mo || !d || !hh || !mm || !ss) return undefined;
       // Base time as UTC
       let dt = Date.UTC(
         Number(y),
