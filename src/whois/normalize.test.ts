@@ -11,7 +11,8 @@ Changed: 2020-01-02
 `;
   const rec = normalizeWhois("example.de", "de", text, "whois.denic.de");
   expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
-  expect(rec.nameservers?.[0].host).toBe("ns1.example.net");
+  expect(rec.nameservers).toBeDefined();
+  expect(rec.nameservers?.[0]?.host).toBe("ns1.example.net");
 });
 
 test("WHOIS .uk Nominet style", () => {

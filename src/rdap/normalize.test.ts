@@ -68,7 +68,8 @@ test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () =
   expect(rec.registrar?.ianaId).toBe("9999");
   expect(rec.contacts && rec.contacts.length >= 3).toBe(true);
   expect(rec.nameservers && rec.nameservers.length === 2).toBe(true);
-  expect(rec.nameservers?.[0].host).toBe("ns1.example.com");
+  expect(rec.nameservers).toBeDefined();
+  expect(rec.nameservers?.[0]?.host).toBe("ns1.example.com");
   expect(rec.dnssec?.enabled).toBeTruthy();
   expect(rec.creationDate).toBe("2020-01-02T03:04:05Z");
   expect(rec.expirationDate).toBe("2030-01-02T03:04:05Z");

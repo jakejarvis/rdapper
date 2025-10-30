@@ -30,6 +30,7 @@ describe("WHOIS coalescing", () => {
     expect(chain.length).toBe(1);
 
     const [first] = chain;
+    if (!first) throw new Error("Expected first record");
     const base = normalizeWhois(
       "gitpod.io",
       "io",

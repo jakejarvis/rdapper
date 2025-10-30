@@ -155,7 +155,12 @@ export function normalizeWhois(
     map.eppstatus || // .fr
     [];
   const statuses = statusLines.length
-    ? statusLines.map((line) => ({ status: line.split(/\s+/)[0], raw: line }))
+    ? statusLines
+        .map((line) => {
+          const status = line.split(/\s+/)[0];
+          return status ? { status, raw: line } : null;
+        })
+        .filter((s): s is { status: string; raw: string } => s !== null)
     : undefined;
 
   // Nameservers: also appear as "nserver" on some ccTLDs (.de, .ru) and as "name server"
@@ -219,8 +224,8 @@ export function normalizeWhois(
     : undefined;
 
   // Simple lock derivation from statuses
-  const transferLock = !!statuses?.some((s) =>
-    /transferprohibited/i.test(s.status),
+  const transferLock = !!statuses?.some(
+    (s) => s.status && /transferprohibited/i.test(s.status),
   );
 
   const record: DomainRecord = {

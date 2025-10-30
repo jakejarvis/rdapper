@@ -373,6 +373,6 @@ export interface LookupResult {
  * of the global `fetch` function available in Node.js 18+ and browsers.
  */
 export type FetchLike = (
-  input: RequestInfo | URL,
+  input: string | URL,
   init?: RequestInit,
 ) => Promise<Response>;

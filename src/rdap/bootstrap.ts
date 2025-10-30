@@ -26,19 +26,19 @@ export async function getRdapBaseUrlsForTld(
 
   // Priority 1: Use pre-loaded bootstrap data if provided (no fetch)
   if (options && "customBootstrapData" in options) {
-    data = options.customBootstrapData as BootstrapData;
+    const provided = options.customBootstrapData;
     // Validate the structure to provide helpful error messages
-    if (!data || typeof data !== "object") {
+    if (!provided || typeof provided !== "object") {
       throw new Error(
         "Invalid customBootstrapData: expected an object. See BootstrapData type for required structure.",
       );
     }
-    if (!Array.isArray(data.services)) {
+    if (!Array.isArray(provided.services)) {
       throw new Error(
         'Invalid customBootstrapData: missing or invalid "services" array. See BootstrapData type for required structure.',
       );
     }
-    data.services.forEach((svc, idx) => {
+    provided.services.forEach((svc, idx) => {
       if (
         !Array.isArray(svc) ||
         svc.length < 2 ||
@@ -50,6 +50,7 @@ export async function getRdapBaseUrlsForTld(
         );
       }
     });
+    data = provided;
   } else {
     // Priority 2 & 3: Fetch from custom URL or default IANA URL
     // Use custom fetch implementation if provided for caching/logging/monitoring
@@ -72,6 +73,7 @@ export async function getRdapBaseUrlsForTld(
   const target = tld.toLowerCase();
   const bases: string[] = [];
   for (const svc of data.services) {
+    if (!svc[0] || !svc[1]) continue;
     const tlds = svc[0].map((x) => x.toLowerCase());
     const urls = svc[1];
     // Match exact TLD, and also support multi-label public suffixes present in IANA (rare)
