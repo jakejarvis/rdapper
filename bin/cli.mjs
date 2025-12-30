@@ -6,7 +6,7 @@
 //   echo "example.com" | npx rdapper
 
 import { createInterface } from "node:readline";
-import { lookup } from "../dist/index.js";
+import { lookup } from "../dist/index.mjs";
 
 async function main() {
   if (process.argv.length > 2) {

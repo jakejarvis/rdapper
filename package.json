@@ -19,17 +19,17 @@
     "access": "public"
   },
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "bin": {
-    "rdapper": "bin/cli.js"
+    "rdapper": "bin/cli.mjs"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "files": [
@@ -38,7 +38,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "cli": "node bin/cli.js",
+    "cli": "node bin/cli.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

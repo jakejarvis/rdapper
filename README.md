@@ -549,7 +549,7 @@ Project layout:
 - `src/whois/` – WHOIS TCP client, discovery/referral, normalization, exceptions
 - `src/lib/` – utilities for dates, text parsing, domain processing, async
 - `src/types.ts` – public types; `src/index.ts` re‑exports API and types
-- `bin/cli.js` – simple CLI for quick checks
+- `bin/cli.mjs` – simple CLI for quick checks
 
 ## Caveats
 
