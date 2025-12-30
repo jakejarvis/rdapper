@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { normalizeWhois } from "./normalize";
+import { isAvailableByWhois, normalizeWhois } from "./normalize";
 
 test("WHOIS .de (DENIC-like) nserver lines", () => {
   const text = `
@@ -185,4 +185,35 @@ Registrant Organization: Example Org
     "whois.verisign-grs.com",
   );
   expect(rec.privacyEnabled).toBe(true);
+});
+
+test("isAvailableByWhois correctly identifies availability patterns", () => {
+  const patterns = [
+    "Domain not found",
+    "No information available",
+    "no se encuentra registrado",
+    "object_not_found",
+    "is free",
+    "no data was found",
+    "no entries found",
+    "No Data Found",
+    "No information was found",
+    "No match",
+    "No object found",
+    "Not been registered",
+    "Does not exist",
+    "NOT FOUND",
+    "Status: free",
+    "Status: available",
+    "unassignable",
+  ];
+
+  for (const pattern of patterns) {
+    expect(isAvailableByWhois(pattern)).toBe(true);
+  }
+
+  // Also verify that normalizeWhois marks isRegistered=false
+  const text = "Domain not found";
+  const rec = normalizeWhois("example.com", "com", text, "whois.example.com");
+  expect(rec.isRegistered).toBe(false);
 });

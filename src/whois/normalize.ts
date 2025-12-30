@@ -14,17 +14,26 @@ const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
   /\bnot found\b/i,
   /\bno entries found\b/i,
   /\bno data found\b/i,
+  /\bno information available\b/i,
+  /\bno information was found\b/i,
+  /\bno data was found\b/i,
   /\bavailable for registration\b/i,
   /\bdomain\s+available\b/i,
   /\bdomain status[:\s]+available\b/i,
   /\bobject does not exist\b/i,
   /\bthe queried object does not exist\b/i,
   /\bqueried object does not exist\b/i,
+  /\bdoes not exist\b/i,
   /\breturned 0 objects\b/i,
+  /\bnot been registered\b/i,
+  /\bunassignable\b/i,
+  /\bis free\b/i,
   // Common variants across ccTLDs/registrars
   /\bstatus:\s*free\b/i,
   /\bstatus:\s*available\b/i,
   /\bno object found\b/i,
+  /\bobject_not_found\b/i,
+  /\bno se encuentra registrado\b/i, // Spanish: "not found registered"
   /\bnicht gefunden\b/i, // German: "not found"
   /\bpending release\b/i, // often signals not registered/being deleted
 ];
@@ -224,8 +233,8 @@ export function normalizeWhois(
     : undefined;
 
   // Simple lock derivation from statuses
-  const transferLock = !!statuses?.some(
-    (s) => s.status && /transferprohibited/i.test(s.status),
+  const transferLock = !!statuses?.some((s) =>
+    /transfer[-\s]*prohibited/i.test(s.raw || s.status || ""),
   );
 
   const record: DomainRecord = {

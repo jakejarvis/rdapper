@@ -121,7 +121,7 @@ export function normalizeRdap(
 
   // Derive a simple transfer lock flag from statuses
   const transferLock = !!statuses?.some((s: { status: string }) =>
-    /transferprohibited/i.test(s.status),
+    /transfer[-\s]*prohibited/i.test(s.status),
   );
 
   // The RDAP document may include "port43" pointer to authoritative WHOIS

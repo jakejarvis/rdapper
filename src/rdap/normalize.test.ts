@@ -100,3 +100,21 @@ test("normalizeRdap derives privacyEnabled from registrant keywords", () => {
   ]);
   expect(rec.privacyEnabled).toBe(true);
 });
+
+test("normalizeRdap detects transfer lock with spaced status", () => {
+  const rdap = {
+    ldhName: "example.com",
+    status: ["client transfer prohibited"],
+  };
+  const rec = normalizeRdap("example.com", "com", rdap, []);
+  expect(rec.transferLock).toBe(true);
+});
+
+test("normalizeRdap detects transfer lock with camelCase status", () => {
+  const rdap = {
+    ldhName: "example.com",
+    status: ["clientTransferProhibited"],
+  };
+  const rec = normalizeRdap("example.com", "com", rdap, []);
+  expect(rec.transferLock).toBe(true);
+});
