@@ -110,7 +110,48 @@ describe("lookup orchestration", () => {
   });
 });
 
-// 2) WHOIS referral toggle and includeRaw behavior
+// 2) RDAP 404 handling (domain not registered)
+describe("RDAP 404 handling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns isRegistered=false when RDAP returns 404", async () => {
+    vi.mocked(rdapClient.fetchRdapDomain).mockResolvedValueOnce({
+      url: "https://rdap.example/domain/nonexistent.gallery",
+      json: null,
+      notFound: true,
+    });
+
+    const res = await lookup("nonexistent.gallery", {
+      rdapOnly: true,
+      timeoutMs: 200,
+    });
+
+    expect(res.ok).toBe(true);
+    expect(res.record?.isRegistered).toBe(false);
+    expect(res.record?.source).toBe("rdap");
+    expect(res.record?.domain).toBe("nonexistent.gallery");
+  });
+
+  it("does not fall back to WHOIS after RDAP 404", async () => {
+    vi.mocked(rdapClient.fetchRdapDomain).mockResolvedValueOnce({
+      url: "https://rdap.example/domain/available.com",
+      json: null,
+      notFound: true,
+    });
+
+    const res = await lookup("available.com", { timeoutMs: 200 });
+
+    expect(res.ok).toBe(true);
+    expect(res.record?.isRegistered).toBe(false);
+    expect(res.record?.source).toBe("rdap");
+    // Should NOT call WHOIS because RDAP gave us a definitive answer
+    expect(vi.mocked(whoisClient.whoisQuery)).not.toHaveBeenCalled();
+  });
+});
+
+// 3) WHOIS referral toggle and includeRaw behavior
 describe("WHOIS referral & includeRaw", () => {
   beforeEach(() => {
     vi.clearAllMocks();
