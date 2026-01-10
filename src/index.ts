@@ -47,7 +47,20 @@ export async function lookup(
       for (const base of bases) {
         tried.push(base);
         try {
-          const { json } = await fetchRdapDomain(domain, base, opts);
+          const { json, notFound } = await fetchRdapDomain(domain, base, opts);
+
+          // HTTP 404 = domain not registered
+          if (notFound) {
+            const record: DomainRecord = {
+              domain,
+              tld,
+              isRegistered: false,
+              rdapServers: tried,
+              source: "rdap",
+            };
+            return { ok: true, record };
+          }
+
           const rdapEnriched = await fetchAndMergeRdapRelated(
             domain,
             json,
