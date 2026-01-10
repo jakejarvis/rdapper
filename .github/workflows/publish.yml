@@ -1,4 +1,4 @@
-name: Publish to NPM
+name: Publish
 
 on:
   release:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  npm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
