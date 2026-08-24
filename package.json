@@ -46,7 +46,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "tldts": "7.0.19"
+    "tldts": "7.4.11"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11",
