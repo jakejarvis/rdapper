@@ -5,5 +5,5 @@ export default defineConfig({
   entry: ["src/index.ts"],
   dts: true,
   nodeProtocol: "strip",
-  external: ["tldts"],
+  deps: { neverBundle: ["tldts"] },
 });
