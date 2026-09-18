@@ -469,7 +469,7 @@ Each entry in `attempts` describes one operation, successful or not, so a failur
 }
 ```
 
-`stage` (`"connect"` or `"read"`) is set on WHOIS timeouts. If a WHOIS server sends some data but never closes the connection, the timeout **resolves with the partial text** instead of failing, and the attempt is marked `partial: true`.
+`stage` (`"connect"` or `"read"`) is set on WHOIS timeouts, and `"read"` also marks a server that accepted the connection and closed it without sending anything (`errorCode: "no_data"`, not a successful empty answer). If a WHOIS server sends some data but never closes the connection, the timeout **resolves with the partial text** instead of failing, and the attempt is marked `partial: true`.
 
 `timeoutMs` applies to each network operation (including reading the response body), not to the lookup as a whole. Without `deadlineMs`, the worst case is roughly `timeoutMs × (1 bootstrap + N RDAP servers + up to 2 RDAP links + 1 IANA + 1 + maxWhoisReferralHops WHOIS queries)`. Set `deadlineMs` to put a hard cap on the total, e.g. for serverless functions with an execution limit:
 

@@ -113,12 +113,38 @@ describe("whoisQuery timeouts", () => {
     ).rejects.toMatchObject({ code: "aborted" });
   });
 
-  it("keeps the data when a server resets the connection after replying", async () => {
+  it("keeps the data (not flagged partial) when a server resets after replying", async () => {
     const p = whoisQuery("whois.example", "example.test");
     await vi.advanceTimersByTimeAsync(0);
     socket.emit("connect");
     socket.emit("data", Buffer.from("answer"));
     socket.emit("error", Object.assign(new Error("reset"), { code: "ECONNRESET" }));
-    await expect(p).resolves.toMatchObject({ text: "answer", partial: true });
+    const res = await p;
+    expect(res.text).toBe("answer");
+    expect(res.partial).toBeUndefined();
+  });
+
+  it.each(["end", "close"])(
+    "rejects with no_data when the server sends nothing then %s",
+    async (evt) => {
+      const p = whoisQuery("whois.example", "example.test");
+      const assertion = expect(p).rejects.toMatchObject({ code: "no_data", stage: "read" });
+      await vi.advanceTimersByTimeAsync(0);
+      socket.emit("connect");
+      socket.emit(evt);
+      await assertion;
+    },
+  );
+
+  it.each([
+    [false, "connect"],
+    [true, "read"],
+  ])("gives an OS ETIMEDOUT (connected=%s) stage %s", async (connected, stage) => {
+    const p = whoisQuery("whois.example", "example.test");
+    const assertion = expect(p).rejects.toMatchObject({ code: "timeout", stage });
+    await vi.advanceTimersByTimeAsync(0);
+    if (connected) socket.emit("connect");
+    socket.emit("error", Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" }));
+    await assertion;
   });
 });

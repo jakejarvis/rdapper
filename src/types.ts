@@ -416,7 +416,7 @@ export interface LookupAttempt {
   durationMs: number;
   errorCode?: LookupErrorCode;
   error?: string;
-  /** WHOIS timeouts only: whether the socket never connected or connected but sent nothing */
+  /** WHOIS failures only: `connect` if the socket never connected; `read` if it connected but sent nothing (timeout, or closed without a response, which is `no_data`) */
   stage?: "connect" | "read";
   /** WHOIS only: the read timed out after some data arrived, so the text is partial */
   partial?: boolean;

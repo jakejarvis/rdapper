@@ -109,9 +109,18 @@ async function queryTcp(
     signal?.addEventListener("abort", onAbort, { once: true });
 
     socket.on("error", (err: NodeJS.ErrnoException) => {
-      // Servers that reset the connection after replying still gave us an answer
       if (err.code === "ECONNRESET" && received > 0) {
-        finish(() => resolve({ text: text(), partial: true }));
+        // The server replied and then reset. Nothing says the reply was cut short, so this is
+        // a normal result; `partial` is reserved for our own read timeout.
+        finish(() => resolve({ text: text() }));
+      } else if (err.code === "ETIMEDOUT") {
+        // OS-level timeout: keep the same shape as our own timer's errors
+        const stage = connected ? "read" : "connect";
+        finish(() =>
+          reject(
+            new RdapperError("timeout", `WHOIS ${stage} timeout (${host})`, { stage, cause: err }),
+          ),
+        );
       } else {
         finish(() => reject(err));
       }
@@ -121,12 +130,29 @@ async function queryTcp(
       chunks.push(buf);
       received += buf.length;
     });
-    socket.on("end", () => {
-      finish(() => resolve({ text: text() }));
-    });
+    // A connection that closes without sending anything (e.g. a throttled client being dropped)
+    // is a failure, not an empty successful answer.
+    const complete = () => {
+      if (received > 0) {
+        finish(() => resolve({ text: text() }));
+      } else {
+        finish(() =>
+          reject(
+            new RdapperError(
+              "no_data",
+              `WHOIS server closed the connection without a response (${host})`,
+              {
+                stage: "read",
+              },
+            ),
+          ),
+        );
+      }
+    };
+    socket.on("end", complete);
     // A close without a preceding end/error (half-open teardown) would otherwise wait out the timer
     socket.on("close", () => {
-      if (connected) finish(() => resolve({ text: text() }));
+      if (connected) complete();
       else {
         finish(() =>
           reject(new RdapperError("connect_failed", `WHOIS connection closed (${host})`)),
