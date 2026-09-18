@@ -11,13 +11,7 @@ import { lookup } from "../dist/index.mjs";
 async function main() {
   if (process.argv.length > 2) {
     // URL(s) specified in the command arguments
-    console.log(
-      JSON.stringify(
-        await lookup(process.argv[process.argv.length - 1]),
-        null,
-        2,
-      ),
-    );
+    console.log(JSON.stringify(await lookup(process.argv[process.argv.length - 1]), null, 2));
   } else {
     // No domain passed as argument, read from each line of stdin
     const rlInterface = createInterface({
@@ -29,4 +23,4 @@ async function main() {
   }
 }
 
-main();
+void main();

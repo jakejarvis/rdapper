@@ -1,8 +1,6 @@
 // Lightweight date parsing helpers to avoid external dependencies.
 // We aim to parse common RDAP and WHOIS date representations and return a UTC ISO string.
-export function toISO(
-  dateLike: string | number | Date | undefined | null,
-): string | undefined {
+export function toISO(dateLike: string | number | Date | undefined | null): string | undefined {
   if (dateLike == null) return undefined;
   if (dateLike instanceof Date) return toIsoFromDate(dateLike);
   if (typeof dateLike === "number") return toIsoFromDate(new Date(dateLike));
@@ -53,10 +51,7 @@ function toIsoFromDate(d: Date): string | undefined {
   }
 }
 
-function parseDateWithRegex(
-  m: RegExpMatchArray,
-  _re: RegExp,
-): Date | undefined {
+function parseDateWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined {
   const monthMap: Record<string, number> = {
     jan: 0,
     feb: 1,
@@ -77,14 +72,7 @@ function parseDateWithRegex(
       const [_, y, mo, d, hh, mm, ss, offH, offM] = m;
       if (!y || !mo || !d || !hh || !mm || !ss) return undefined;
       // Base time as UTC
-      let dt = Date.UTC(
-        Number(y),
-        Number(mo) - 1,
-        Number(d),
-        Number(hh),
-        Number(mm),
-        Number(ss),
-      );
+      let dt = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss));
       // Apply timezone offset if present (e.g., +0000, -0500, +05:30)
       if (offH) {
         const sign = offH.startsWith("-") ? -1 : 1;

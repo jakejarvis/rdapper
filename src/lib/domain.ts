@@ -6,10 +6,7 @@ type ParseOptions = Parameters<typeof parse>[1];
  * Parse a domain into its parts. Passes options to `tldts.parse()`.
  * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
-export function getDomainParts(
-  domain: string,
-  opts?: ParseOptions,
-): ReturnType<typeof parse> {
+export function getDomainParts(domain: string, opts?: ParseOptions): ReturnType<typeof parse> {
   return parse(domain, { ...opts });
 }
 
@@ -17,10 +14,7 @@ export function getDomainParts(
  * Get the TLD (ICANN-only public suffix) of a domain. Passes options to `tldts.parse()`.
  * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
-export function getDomainTld(
-  domain: string,
-  opts?: ParseOptions,
-): string | null {
+export function getDomainTld(domain: string, opts?: ParseOptions): string | null {
   const result = getDomainParts(domain, {
     allowPrivateDomains: false,
     ...opts,
@@ -54,10 +48,7 @@ export function punyToUnicode(domain: string): string {
  * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs)
  * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
-export function toRegistrableDomain(
-  input: string,
-  opts?: ParseOptions,
-): string | null {
+export function toRegistrableDomain(input: string, opts?: ParseOptions): string | null {
   const raw = (input ?? "").trim();
   if (raw === "") return null;
 

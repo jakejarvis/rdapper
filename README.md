@@ -37,8 +37,8 @@ Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1):
 import { toRegistrableDomain } from "rdapper";
 
 toRegistrableDomain("https://sub.example.co.uk/page"); // => "example.co.uk"
-toRegistrableDomain("spark-public.s3.amazonaws.com");   // => "amazonaws.com" (ICANN-only default)
-toRegistrableDomain("192.168.0.1");                      // => null
+toRegistrableDomain("spark-public.s3.amazonaws.com"); // => "amazonaws.com" (ICANN-only default)
+toRegistrableDomain("192.168.0.1"); // => null
 ```
 
 Convenience helpers to quickly check availability:
@@ -102,7 +102,7 @@ For production applications that perform many domain lookups, you can take contr
 #### Example: In-memory caching with TTL
 
 ```ts
-import { lookup, type BootstrapData } from 'rdapper';
+import { lookup, type BootstrapData } from "rdapper";
 
 // Simple in-memory cache with TTL
 let cachedBootstrap: BootstrapData | null = null;
@@ -111,43 +111,43 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 async function getBootstrapData(): Promise<BootstrapData> {
   const now = Date.now();
-  
+
   // Return cached data if still valid
   if (cachedBootstrap && now < cacheExpiry) {
     return cachedBootstrap;
   }
-  
+
   // Fetch fresh data
-  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  const response = await fetch("https://data.iana.org/rdap/dns.json");
   if (!response.ok) {
     throw new Error(`Failed to load bootstrap data: ${response.status} ${response.statusText}`);
   }
   const data: BootstrapData = await response.json();
-  
+
   // Update cache
   cachedBootstrap = data;
   cacheExpiry = now + CACHE_TTL_MS;
-  
+
   return data;
 }
 
 // Use the cached bootstrap data in lookups
 const bootstrapData = await getBootstrapData();
-const result = await lookup('example.com', {
-  customBootstrapData: bootstrapData
+const result = await lookup("example.com", {
+  customBootstrapData: bootstrapData,
 });
 ```
 
 #### Example: Redis caching
 
 ```ts
-import { lookup, type BootstrapData } from 'rdapper';
-import { createClient } from 'redis';
+import { lookup, type BootstrapData } from "rdapper";
+import { createClient } from "redis";
 
 const redis = createClient();
 await redis.connect();
 
-const CACHE_KEY = 'rdap:bootstrap:dns';
+const CACHE_KEY = "rdap:bootstrap:dns";
 const CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 async function getBootstrapData(): Promise<BootstrapData> {
@@ -156,34 +156,34 @@ async function getBootstrapData(): Promise<BootstrapData> {
   if (cached) {
     return JSON.parse(cached);
   }
-  
+
   // Fetch fresh data
-  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  const response = await fetch("https://data.iana.org/rdap/dns.json");
   if (!response.ok) {
     throw new Error(`Failed to load bootstrap data: ${response.status} ${response.statusText}`);
   }
   const data: BootstrapData = await response.json();
-  
+
   // Store in Redis with TTL
   await redis.setEx(CACHE_KEY, CACHE_TTL_SECONDS, JSON.stringify(data));
-  
+
   return data;
 }
 
 // Use the cached bootstrap data in lookups
 const bootstrapData = await getBootstrapData();
-const result = await lookup('example.com', {
-  customBootstrapData: bootstrapData
+const result = await lookup("example.com", {
+  customBootstrapData: bootstrapData,
 });
 ```
 
 #### Example: Filesystem caching
 
 ```ts
-import { lookup, type BootstrapData } from 'rdapper';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { lookup, type BootstrapData } from "rdapper";
+import { readFile, writeFile, stat } from "node:fs/promises";
 
-const CACHE_FILE = './cache/rdap-bootstrap.json';
+const CACHE_FILE = "./cache/rdap-bootstrap.json";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 async function getBootstrapData(): Promise<BootstrapData> {
@@ -191,32 +191,32 @@ async function getBootstrapData(): Promise<BootstrapData> {
     // Check if cache file exists and is fresh
     const stats = await stat(CACHE_FILE);
     const age = Date.now() - stats.mtimeMs;
-    
+
     if (age < CACHE_TTL_MS) {
-      const cached = await readFile(CACHE_FILE, 'utf-8');
+      const cached = await readFile(CACHE_FILE, "utf-8");
       return JSON.parse(cached);
     }
   } catch {
     // Cache file doesn't exist or is unreadable, will fetch fresh
   }
-  
+
   // Fetch fresh data
-  const response = await fetch('https://data.iana.org/rdap/dns.json');
+  const response = await fetch("https://data.iana.org/rdap/dns.json");
   if (!response.ok) {
     throw new Error(`Failed to load bootstrap data: ${response.status} ${response.statusText}`);
   }
   const data: BootstrapData = await response.json();
-  
+
   // Write to cache file
-  await writeFile(CACHE_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  
+  await writeFile(CACHE_FILE, JSON.stringify(data, null, 2), "utf-8");
+
   return data;
 }
 
 // Use the cached bootstrap data in lookups
 const bootstrapData = await getBootstrapData();
-const result = await lookup('example.com', {
-  customBootstrapData: bootstrapData
+const result = await lookup("example.com", {
+  customBootstrapData: bootstrapData,
 });
 ```
 
@@ -226,10 +226,10 @@ The `BootstrapData` type matches IANA's published format:
 
 ```ts
 interface BootstrapData {
-  version: string;           // e.g., "1.0"
-  publication: string;       // ISO 8601 timestamp
+  version: string; // e.g., "1.0"
+  publication: string; // ISO 8601 timestamp
   description?: string;
-  services: string[][][];    // Array of [TLDs, base URLs] tuples
+  services: string[][][]; // Array of [TLDs, base URLs] tuples
 }
 ```
 
@@ -244,6 +244,7 @@ For advanced use cases, rdapper allows you to provide a custom `fetch` implement
 #### What requests are affected?
 
 Your custom fetch will be used for:
+
 - **RDAP bootstrap registry requests** (fetching `dns.json` from IANA, unless `customBootstrapData` is provided)
 - **RDAP domain lookups** (querying RDAP servers for domain data)
 - **RDAP related/entity link requests** (following links to registrar information)
@@ -260,40 +261,40 @@ Your custom fetch will be used for:
 #### Example 1: Simple in-memory cache
 
 ```ts
-import { lookup } from 'rdapper';
+import { lookup } from "rdapper";
 
 const cache = new Map<string, Response>();
 
 const cachedFetch: typeof fetch = async (input, init) => {
-  const url = typeof input === 'string' ? input : input.toString();
-  
+  const url = typeof input === "string" ? input : input.toString();
+
   // Check cache first
   if (cache.has(url)) {
-    console.log('[Cache Hit]', url);
+    console.log("[Cache Hit]", url);
     return cache.get(url)!.clone();
   }
-  
+
   // Fetch and cache
-  console.log('[Cache Miss]', url);
+  console.log("[Cache Miss]", url);
   const response = await fetch(input, init);
   cache.set(url, response.clone());
   return response;
 };
 
-const result = await lookup('example.com', { customFetch: cachedFetch });
+const result = await lookup("example.com", { customFetch: cachedFetch });
 ```
 
 #### Example 2: Request logging and monitoring
 
 ```ts
-import { lookup } from 'rdapper';
+import { lookup } from "rdapper";
 
 const loggingFetch: typeof fetch = async (input, init) => {
-  const url = typeof input === 'string' ? input : input.toString();
+  const url = typeof input === "string" ? input : input.toString();
   const start = Date.now();
-  
-  console.log(`[→] ${init?.method || 'GET'} ${url}`);
-  
+
+  console.log(`[→] ${init?.method || "GET"} ${url}`);
+
   try {
     const response = await fetch(input, init);
     const duration = Date.now() - start;
@@ -306,54 +307,54 @@ const loggingFetch: typeof fetch = async (input, init) => {
   }
 };
 
-const result = await lookup('example.com', { customFetch: loggingFetch });
+const result = await lookup("example.com", { customFetch: loggingFetch });
 ```
 
 #### Example 3: Retry logic with exponential backoff
 
 ```ts
-import { lookup } from 'rdapper';
+import { lookup } from "rdapper";
 
 async function fetchWithRetry(
   input: RequestInfo | URL,
   init?: RequestInit,
-  maxRetries = 3
+  maxRetries = 3,
 ): Promise<Response> {
   let lastError: Error | undefined;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(input, init);
-      
+
       // Retry on 5xx errors
       if (response.status >= 500 && attempt < maxRetries) {
         const delay = Math.min(1000 * 2 ** attempt, 10000);
         console.log(`Retrying after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
-      
+
       return response;
     } catch (error) {
       lastError = error as Error;
       if (attempt < maxRetries) {
         const delay = Math.min(1000 * 2 ** attempt, 10000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
     }
   }
-  
-  throw lastError || new Error('Max retries exceeded');
+
+  throw lastError || new Error("Max retries exceeded");
 }
 
-const result = await lookup('example.com', { customFetch: fetchWithRetry });
+const result = await lookup("example.com", { customFetch: fetchWithRetry });
 ```
 
 #### Example 4: HTTP caching with cache-control headers
 
 ```ts
-import { lookup } from 'rdapper';
+import { lookup } from "rdapper";
 
 interface CachedResponse {
   response: Response;
@@ -363,20 +364,20 @@ interface CachedResponse {
 const httpCache = new Map<string, CachedResponse>();
 
 const httpCachingFetch: typeof fetch = async (input, init) => {
-  const url = typeof input === 'string' ? input : input.toString();
+  const url = typeof input === "string" ? input : input.toString();
   const now = Date.now();
-  
+
   // Check if we have a valid cached response
   const cached = httpCache.get(url);
   if (cached && cached.expiresAt > now) {
     return cached.response.clone();
   }
-  
+
   // Fetch fresh response
   const response = await fetch(input, init);
-  
+
   // Parse Cache-Control header
-  const cacheControl = response.headers.get('cache-control');
+  const cacheControl = response.headers.get("cache-control");
   if (cacheControl) {
     const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
     if (maxAgeMatch) {
@@ -387,11 +388,11 @@ const httpCachingFetch: typeof fetch = async (input, init) => {
       });
     }
   }
-  
+
   return response;
 };
 
-const result = await lookup('example.com', { customFetch: httpCachingFetch });
+const result = await lookup("example.com", { customFetch: httpCachingFetch });
 ```
 
 #### Example 5: Combining with customBootstrapData
@@ -399,10 +400,10 @@ const result = await lookup('example.com', { customFetch: httpCachingFetch });
 You can use both `customFetch` and `customBootstrapData` together for maximum control:
 
 ```ts
-import { lookup, type BootstrapData } from 'rdapper';
+import { lookup, type BootstrapData } from "rdapper";
 
 // Pre-load bootstrap data (no fetch needed for this)
-const bootstrapData: BootstrapData = await getFromCache('bootstrap');
+const bootstrapData: BootstrapData = await getFromCache("bootstrap");
 
 // Use custom fetch for all other RDAP requests
 const cachedFetch: typeof fetch = async (input, init) => {
@@ -410,7 +411,7 @@ const cachedFetch: typeof fetch = async (input, init) => {
   return fetch(input, init);
 };
 
-const result = await lookup('example.com', {
+const result = await lookup("example.com", {
   customBootstrapData: bootstrapData,
   customFetch: cachedFetch,
 });
@@ -441,13 +442,13 @@ The exact presence of fields depends on registry/registrar data and whether RDAP
 
 ```ts
 interface DomainRecord {
-  domain: string;             // normalized name (unicode when available)
-  tld: string;                // public suffix (can be multi-label, e.g., "com", "co.uk")
-  isRegistered: boolean;      // availability heuristic (WHOIS) or true (RDAP)
-  isIDN?: boolean;            // uses punycode labels (xn--)
-  unicodeName?: string;       // RDAP unicodeName when provided
-  punycodeName?: string;      // RDAP ldhName when provided
-  registry?: string;          // registry operator (rarely available)
+  domain: string; // normalized name (unicode when available)
+  tld: string; // public suffix (can be multi-label, e.g., "com", "co.uk")
+  isRegistered: boolean; // availability heuristic (WHOIS) or true (RDAP)
+  isIDN?: boolean; // uses punycode labels (xn--)
+  unicodeName?: string; // RDAP unicodeName when provided
+  punycodeName?: string; // RDAP ldhName when provided
+  registry?: string; // registry operator (rarely available)
   registrar?: {
     name?: string;
     ianaId?: string;
@@ -461,11 +462,11 @@ interface DomainRecord {
     description?: string;
     raw?: string;
   }>;
-  creationDate?: string;      // ISO 8601 (UTC)
-  updatedDate?: string;       // ISO 8601 (UTC)
-  expirationDate?: string;    // ISO 8601 (UTC)
-  deletionDate?: string;      // ISO 8601 (UTC)
-  transferLock?: boolean;     // derived from EPP statuses
+  creationDate?: string; // ISO 8601 (UTC)
+  updatedDate?: string; // ISO 8601 (UTC)
+  expirationDate?: string; // ISO 8601 (UTC)
+  deletionDate?: string; // ISO 8601 (UTC)
+  transferLock?: boolean; // derived from EPP statuses
   dnssec?: {
     enabled: boolean;
     dsRecords?: Array<{
@@ -481,7 +482,8 @@ interface DomainRecord {
     ipv6?: string[];
   }>;
   contacts?: Array<{
-    type: "registrant" | "admin" | "tech" | "billing" | "abuse" | "registrar" | "reseller" | "unknown";
+    type:
+      "registrant" | "admin" | "tech" | "billing" | "abuse" | "registrar" | "reseller" | "unknown";
     name?: string;
     organization?: string;
     email?: string | string[];
@@ -494,12 +496,12 @@ interface DomainRecord {
     country?: string;
     countryCode?: string;
   }>;
-  privacyEnabled?: boolean;   // registrant appears privacy-redacted based on keyword heuristics
-  whoisServer?: string;       // authoritative WHOIS queried (if any)
-  rdapServers?: string[];     // RDAP URLs tried (bootstrap bases and related/entity links)
-  rawRdap?: unknown;          // raw RDAP JSON (only when options.includeRaw)
-  rawWhois?: string;          // raw WHOIS text (only when options.includeRaw)
-  source: "rdap" | "whois";   // which path produced data
+  privacyEnabled?: boolean; // registrant appears privacy-redacted based on keyword heuristics
+  whoisServer?: string; // authoritative WHOIS queried (if any)
+  rdapServers?: string[]; // RDAP URLs tried (bootstrap bases and related/entity links)
+  rawRdap?: unknown; // raw RDAP JSON (only when options.includeRaw)
+  rawWhois?: string; // raw WHOIS text (only when options.includeRaw)
+  source: "rdap" | "whois"; // which path produced data
   warnings?: string[];
 }
 ```
@@ -511,7 +513,10 @@ interface DomainRecord {
   "domain": "example.com",
   "tld": "com",
   "isRegistered": true,
-  "registrar": { "name": "Internet Assigned Numbers Authority", "ianaId": "376" },
+  "registrar": {
+    "name": "Internet Assigned Numbers Authority",
+    "ianaId": "376"
+  },
   "statuses": [{ "status": "clientTransferProhibited" }],
   "nameservers": [{ "host": "a.iana-servers.net" }, { "host": "b.iana-servers.net" }],
   "dnssec": { "enabled": true },
@@ -539,9 +544,10 @@ Timeouts are enforced per request using a simple race against `timeoutMs` (defau
 - Test: `npm test` ([Vitest](https://vitest.dev/))
   - By default, tests are offline/deterministic.
   - Watch mode: `npm run dev`
-  - Coverage: `npm run test:run -- --coverage`
+  - Coverage: `npm run test -- --coverage`
   - Smoke tests that hit the network are gated by `SMOKE=1`, e.g. `SMOKE=1 npm test`.
-- Lint/format: `npm run lint` ([Biome](https://biomejs.dev/))
+- Lint: `npm run lint` ([Oxlint](https://oxc.rs/docs/guide/usage/linter))
+- Format: `npm run fmt` ([Oxfmt](https://oxc.rs/docs/guide/usage/formatter))
 
 Project layout:
 

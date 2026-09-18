@@ -1,12 +1,7 @@
 import { toISO } from "../lib/dates";
 import { isPrivacyName } from "../lib/privacy";
 import { parseKeyValueLines, uniq } from "../lib/text";
-import type {
-  Contact,
-  DomainRecord,
-  Nameserver,
-  RegistrarInfo,
-} from "../types";
+import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
 // Common WHOIS availability phrases seen across registries/registrars
 const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
@@ -123,11 +118,7 @@ export function normalizeWhois(
       "organisation",
       "record maintained by",
     ]);
-    const ianaId = anyValue(map, [
-      "registrar iana id",
-      "sponsoring registrar iana id",
-      "iana id",
-    ]);
+    const ianaId = anyValue(map, ["registrar iana id", "sponsoring registrar iana id", "iana id"]);
     const url = anyValue(map, [
       "registrar url",
       "registrar website",
@@ -135,16 +126,9 @@ export function normalizeWhois(
       "url of the registrar",
       "referrer",
     ]);
-    const abuseEmail = anyValue(map, [
-      "registrar abuse contact email",
-      "abuse contact email",
-    ]);
-    const abusePhone = anyValue(map, [
-      "registrar abuse contact phone",
-      "abuse contact phone",
-    ]);
-    if (!name && !ianaId && !url && !abuseEmail && !abusePhone)
-      return undefined;
+    const abuseEmail = anyValue(map, ["registrar abuse contact email", "abuse contact email"]);
+    const abusePhone = anyValue(map, ["registrar abuse contact phone", "abuse contact phone"]);
+    if (!name && !ianaId && !url && !abuseEmail && !abusePhone) return undefined;
     return {
       name: name || undefined,
       ianaId: ianaId || undefined,
@@ -222,15 +206,11 @@ export function normalizeWhois(
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled = !!(
     registrant &&
-    (
-      [registrant.name, registrant.organization].filter(Boolean) as string[]
-    ).some(isPrivacyName)
+    ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
   );
 
   const dnssecRaw = (map.dnssec?.[0] || "").toLowerCase();
-  const dnssec = dnssecRaw
-    ? { enabled: /signed|yes|true/.test(dnssecRaw) }
-    : undefined;
+  const dnssec = dnssecRaw ? { enabled: /signed|yes|true/.test(dnssecRaw) } : undefined;
 
   // Simple lock derivation from statuses
   const transferLock = !!statuses?.some((s) =>
@@ -268,10 +248,7 @@ export function normalizeWhois(
   return record;
 }
 
-function anyValue(
-  map: Record<string, string[]>,
-  keys: string[],
-): string | undefined {
+function anyValue(map: Record<string, string[]>, keys: string[]): string | undefined {
   for (const k of keys) {
     const v = map[k];
     if (v?.length) return v[0];
@@ -327,11 +304,7 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
         nameKeys.push("owner name"); // .tm
       }
 
-      orgKeys.push(
-        `${prefix} organization`,
-        `${prefix} organisation`,
-        `${prefix} org`,
-      );
+      orgKeys.push(`${prefix} organization`, `${prefix} organisation`, `${prefix} org`);
       if (prefix === "registrant") {
         orgKeys.push("trading as"); // .uk, .co.uk
         orgKeys.push("org"); // .ru
@@ -340,42 +313,22 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
         orgKeys.push("owner orgname"); // .tm
       }
 
-      emailKeys.push(
-        `${prefix} email`,
-        `${prefix} contact email`,
-        `${prefix} e-mail`,
-      );
+      emailKeys.push(`${prefix} email`, `${prefix} contact email`, `${prefix} e-mail`);
 
-      phoneKeys.push(
-        `${prefix} phone`,
-        `${prefix} contact phone`,
-        `${prefix} telephone`,
-      );
+      phoneKeys.push(`${prefix} phone`, `${prefix} contact phone`, `${prefix} telephone`);
 
       faxKeys.push(`${prefix} fax`, `${prefix} facsimile`);
 
-      streetKeys.push(
-        `${prefix} street`,
-        `${prefix} address`,
-        `${prefix}'s address`,
-      );
+      streetKeys.push(`${prefix} street`, `${prefix} address`, `${prefix}'s address`);
       if (prefix === "owner") {
         streetKeys.push("owner addr"); // .tm
       }
 
       cityKeys.push(`${prefix} city`);
 
-      stateKeys.push(
-        `${prefix} state`,
-        `${prefix} province`,
-        `${prefix} state/province`,
-      );
+      stateKeys.push(`${prefix} state`, `${prefix} province`, `${prefix} state/province`);
 
-      postalCodeKeys.push(
-        `${prefix} postal code`,
-        `${prefix} postcode`,
-        `${prefix} zip`,
-      );
+      postalCodeKeys.push(`${prefix} postal code`, `${prefix} postcode`, `${prefix} zip`);
 
       countryKeys.push(`${prefix} country`);
     }
@@ -410,10 +363,7 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
   return contacts.length ? contacts : undefined;
 }
 
-function multi(
-  map: Record<string, string[]>,
-  keys: string[],
-): string[] | undefined {
+function multi(map: Record<string, string[]>, keys: string[]): string[] | undefined {
   for (const k of keys) {
     const v = map[k];
     if (v?.length) return v;

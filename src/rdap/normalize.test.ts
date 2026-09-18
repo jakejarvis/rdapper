@@ -47,9 +47,7 @@ test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () =
     ],
     secureDNS: {
       delegationSigned: true,
-      dsData: [
-        { keyTag: 12345, algorithm: 13, digestType: 2, digest: "ABCDEF" },
-      ],
+      dsData: [{ keyTag: 12345, algorithm: 13, digestType: 2, digest: "ABCDEF" }],
     },
     events: [
       { eventAction: "registration", eventDate: "2020-01-02T03:04:05Z" },
@@ -59,9 +57,7 @@ test("normalizeRdap maps registrar, contacts, nameservers, events, dnssec", () =
     status: ["clientTransferProhibited"],
     port43: "whois.example-registrar.test",
   };
-  const rec = normalizeRdap("example.com", "com", rdap, [
-    "https://rdap.example/",
-  ]);
+  const rec = normalizeRdap("example.com", "com", rdap, ["https://rdap.example/"]);
   expect(rec.domain).toBe("example.com");
   expect(rec.tld).toBe("com");
   expect(rec.registrar?.name).toBe("Registrar LLC");
@@ -95,9 +91,7 @@ test("normalizeRdap derives privacyEnabled from registrant keywords", () => {
       },
     ],
   };
-  const rec = normalizeRdap("example.com", "com", rdap, [
-    "https://rdap.example/",
-  ]);
+  const rec = normalizeRdap("example.com", "com", rdap, ["https://rdap.example/"]);
   expect(rec.privacyEnabled).toBe(true);
 });
 

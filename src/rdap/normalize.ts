@@ -1,12 +1,7 @@
 import { toISO } from "../lib/dates";
 import { isPrivacyName } from "../lib/privacy";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
-import type {
-  Contact,
-  DomainRecord,
-  Nameserver,
-  RegistrarInfo,
-} from "../types";
+import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
 type RdapDoc = Record<string, unknown>;
 
@@ -24,24 +19,17 @@ export function normalizeRdap(
   const doc = (rdap ?? {}) as RdapDoc;
 
   // Prefer ldhName (punycode) and unicodeName if provided
-  const ldhName: string | undefined =
-    asString(doc.ldhName) || asString(doc.handle);
+  const ldhName: string | undefined = asString(doc.ldhName) || asString(doc.handle);
   const unicodeName: string | undefined = asString(doc.unicodeName);
 
   // Registrar entity can be provided with role "registrar"
-  const registrar: RegistrarInfo | undefined = extractRegistrar(
-    doc.entities as unknown,
-  );
+  const registrar: RegistrarInfo | undefined = extractRegistrar(doc.entities as unknown);
 
   // Nameservers: normalize host + IPs
   const nameservers: Nameserver[] | undefined = Array.isArray(doc.nameservers)
     ? (doc.nameservers as RdapDoc[])
         .map((ns) => {
-          const host = (
-            asString(ns.ldhName) ??
-            asString(ns.unicodeName) ??
-            ""
-          ).toLowerCase();
+          const host = (asString(ns.ldhName) ?? asString(ns.unicodeName) ?? "").toLowerCase();
           const ip = ns.ipAddresses as RdapDoc | undefined;
           const ipv4 = asStringArray(ip?.v4);
           const ipv6 = asStringArray(ip?.v6);
@@ -54,17 +42,13 @@ export function normalizeRdap(
     : undefined;
 
   // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
-  const contacts: Contact[] | undefined = extractContacts(
-    doc.entities as unknown,
-  );
+  const contacts: Contact[] | undefined = extractContacts(doc.entities as unknown);
 
   // Derive privacy flag from registrant name/org keywords
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled = !!(
     registrant &&
-    (
-      [registrant.name, registrant.organization].filter(Boolean) as string[]
-    ).some(isPrivacyName)
+    ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
   );
 
   // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
@@ -99,21 +83,16 @@ export function normalizeRdap(
     : [];
   const byAction = (action: string) =>
     events.find(
-      (e) =>
-        typeof e?.eventAction === "string" &&
-        e.eventAction.toLowerCase().includes(action),
+      (e) => typeof e?.eventAction === "string" && e.eventAction.toLowerCase().includes(action),
     );
   const creationDate = toISO(
-    asDateLike(byAction("registration")?.eventDate) ??
-      asDateLike(doc.registrationDate),
+    asDateLike(byAction("registration")?.eventDate) ?? asDateLike(doc.registrationDate),
   );
   const updatedDate = toISO(
-    asDateLike(byAction("last changed")?.eventDate) ??
-      asDateLike(doc.lastChangedDate),
+    asDateLike(byAction("last changed")?.eventDate) ?? asDateLike(doc.lastChangedDate),
   );
   const expirationDate = toISO(
-    asDateLike(byAction("expiration")?.eventDate) ??
-      asDateLike(doc.expirationDate),
+    asDateLike(byAction("expiration")?.eventDate) ?? asDateLike(doc.expirationDate),
   );
   const deletionDate = toISO(
     asDateLike(byAction("deletion")?.eventDate) ?? asDateLike(doc.deletionDate),
@@ -164,9 +143,7 @@ function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
   if (!Array.isArray(entities)) return undefined;
   for (const ent of entities) {
     const roles: string[] = Array.isArray((ent as RdapDoc)?.roles)
-      ? ((ent as RdapDoc).roles as unknown[]).filter(
-          (r): r is string => typeof r === "string",
-        )
+      ? ((ent as RdapDoc).roles as unknown[]).filter((r): r is string => typeof r === "string")
       : [];
     if (!roles.some((r) => /registrar/i.test(r))) continue;
     const v = parseVcard((ent as RdapDoc)?.vcardArray);
@@ -191,9 +168,7 @@ function extractContacts(entities: unknown): Contact[] | undefined {
   const out: Contact[] = [];
   for (const ent of entities) {
     const roles: string[] = Array.isArray((ent as RdapDoc)?.roles)
-      ? ((ent as RdapDoc).roles as unknown[]).filter(
-          (r): r is string => typeof r === "string",
-        )
+      ? ((ent as RdapDoc).roles as unknown[]).filter((r): r is string => typeof r === "string")
       : [];
     const v = parseVcard((ent as RdapDoc)?.vcardArray);
     const type = roles.find((r) =>
@@ -245,15 +220,9 @@ interface ParsedVCard {
 // Parse a minimal subset of vCard 4.0 arrays as used in RDAP "vcardArray" fields
 function parseVcard(vcardArray: unknown): ParsedVCard {
   // vcardArray is typically ["vcard", [["version",{} ,"text","4.0"], ["fn",{} ,"text","Example"], ...]]
-  if (
-    !Array.isArray(vcardArray) ||
-    vcardArray[0] !== "vcard" ||
-    !Array.isArray(vcardArray[1])
-  )
+  if (!Array.isArray(vcardArray) || vcardArray[0] !== "vcard" || !Array.isArray(vcardArray[1]))
     return {};
-  const entries = vcardArray[1] as Array<
-    [string, Record<string, unknown>, string, unknown]
-  >;
+  const entries = vcardArray[1] as Array<[string, Record<string, unknown>, string, unknown]>;
   const out: ParsedVCard = {};
   for (const e of entries) {
     const key = e?.[0];
@@ -264,9 +233,7 @@ function parseVcard(vcardArray: unknown): ParsedVCard {
         out.fn = asString(value);
         break;
       case "org":
-        out.org = Array.isArray(value)
-          ? value.map((x) => String(x)).join(" ")
-          : asString(value);
+        out.org = Array.isArray(value) ? value.map((x) => String(x)).join(" ") : asString(value);
         break;
       case "email":
         out.email = asString(value);

@@ -24,10 +24,7 @@ export async function fetchRdapDomain(
   baseUrl: string,
   options?: LookupOptions,
 ): Promise<RdapFetchResult> {
-  const url = new URL(
-    `domain/${encodeURIComponent(domain)}`,
-    baseUrl,
-  ).toString();
+  const url = new URL(`domain/${encodeURIComponent(domain)}`, baseUrl).toString();
   const fetchFn = resolveFetch(options);
   const res = await withTimeout(
     fetchFn(url, {

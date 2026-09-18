@@ -1,12 +1,4 @@
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BootstrapData } from "../types";
 import { getRdapBaseUrlsForTld } from "./bootstrap";
 
@@ -110,9 +102,7 @@ describe("getRdapBaseUrlsForTld with customBootstrapData", () => {
       const dataWithDuplicates: BootstrapData = {
         version: "1.0",
         publication: "2025-01-15T12:00:00Z",
-        services: [
-          [["test"], ["https://rdap.example.com/", "https://rdap.example.com"]],
-        ],
+        services: [[["test"], ["https://rdap.example.com/", "https://rdap.example.com"]]],
       };
 
       const urls = await getRdapBaseUrlsForTld("test", {

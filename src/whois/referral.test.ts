@@ -32,11 +32,10 @@ describe("WHOIS referral contradiction handling", () => {
   });
 
   it("collects chain and does not append contradictory registrar", async () => {
-    const chain = await collectWhoisReferralChain(
-      "whois.nic.io",
-      "raindrop.io",
-      { followWhoisReferral: true, maxWhoisReferralHops: 2 },
-    );
+    const chain = await collectWhoisReferralChain("whois.nic.io", "raindrop.io", {
+      followWhoisReferral: true,
+      maxWhoisReferralHops: 2,
+    });
     expect(Array.isArray(chain)).toBe(true);
     // Mocked registrar is contradictory, so chain should contain only the TLD response
     expect(chain.length).toBe(1);

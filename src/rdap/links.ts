@@ -13,9 +13,7 @@ export function extractRdapRelatedLinks(
   opts?: Pick<LookupOptions, "rdapLinkRels">,
 ): string[] {
   const rels = (
-    opts?.rdapLinkRels?.length
-      ? opts.rdapLinkRels
-      : ["related", "entity", "registrar", "alternate"]
+    opts?.rdapLinkRels?.length ? opts.rdapLinkRels : ["related", "entity", "registrar", "alternate"]
   ).map((r) => r.toLowerCase());
   const d = (doc ?? {}) as Record<string, unknown> & { links?: RdapLink[] };
   const arr = Array.isArray(d?.links) ? (d.links as RdapLink[]) : [];

@@ -15,9 +15,7 @@ maybeTest("lookup smoke test (example.com)", async () => {
   expect(res.ok, res.error).toBe(true);
   expect(Boolean(res.record?.domain)).toBe(true);
   expect(Boolean(res.record?.tld)).toBe(true);
-  expect(res.record?.source === "rdap" || res.record?.source === "whois").toBe(
-    true,
-  );
+  expect(res.record?.source === "rdap" || res.record?.source === "whois").toBe(true);
 });
 
 // RDAP-only smoke for reserved example domains (.com/.net/.org)
@@ -42,9 +40,7 @@ for (const c of rdapCases) {
     if (c.tld !== "org") {
       // .com/.net often include the IANA reserved name explicitly
       expect(
-        (rec.registrar?.name || "")
-          .toLowerCase()
-          .includes("internet assigned numbers authority"),
+        (rec.registrar?.name || "").toLowerCase().includes("internet assigned numbers authority"),
       ).toBe(true);
     }
     // IANA nameservers
@@ -112,9 +108,7 @@ maybeTest("WHOIS-only lookup for example.io", async () => {
 });
 
 maybeTest("isRegistered true for example.com", async () => {
-  await expect(isRegistered("example.com", { timeoutMs: 15000 })).resolves.toBe(
-    true,
-  );
+  await expect(isRegistered("example.com", { timeoutMs: 15000 })).resolves.toBe(true);
 });
 
 maybeTest("isAvailable true for an unlikely .com", async () => {

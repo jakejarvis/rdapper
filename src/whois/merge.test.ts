@@ -31,13 +31,7 @@ describe("WHOIS coalescing", () => {
 
     const [first] = chain;
     if (!first) throw new Error("Expected first record");
-    const base = normalizeWhois(
-      "gitpod.io",
-      "io",
-      first.text,
-      first.serverQueried,
-      false,
-    );
+    const base = normalizeWhois("gitpod.io", "io", first.text, first.serverQueried, false);
     const merged = mergeWhoisRecords(base, []);
     expect(merged.isRegistered).toBe(true);
     expect(merged.creationDate).toBeDefined();

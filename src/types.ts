@@ -372,7 +372,4 @@ export interface LookupResult {
  * Used internally for dependency injection and testing. Matches the signature
  * of the global `fetch` function available in Node.js 18+ and browsers.
  */
-export type FetchLike = (
-  input: string | URL,
-  init?: RequestInit,
-) => Promise<Response>;
+export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;

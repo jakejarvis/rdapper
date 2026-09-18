@@ -14,15 +14,11 @@ test("isLikelyDomain", () => {
 test("toRegistrableDomain normalizes eTLD+1 and rejects non-ICANN", () => {
   // Basic domains
   expect(toRegistrableDomain("example.com")).toBe("example.com");
-  expect(toRegistrableDomain("http://www.writethedocs.org/conf")).toBe(
-    "writethedocs.org",
-  );
+  expect(toRegistrableDomain("http://www.writethedocs.org/conf")).toBe("writethedocs.org");
 
   // Private/public SLDs should collapse to ICANN TLD + SLD by default
   // (ICANN-only behavior; private suffixes ignored)
-  expect(toRegistrableDomain("spark-public.s3.amazonaws.com")).toBe(
-    "amazonaws.com",
-  );
+  expect(toRegistrableDomain("spark-public.s3.amazonaws.com")).toBe("amazonaws.com");
 
   // Reject IPs and invalid inputs
   expect(toRegistrableDomain("192.168.0.1")).toBeNull();

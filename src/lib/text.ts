@@ -69,11 +69,6 @@ export function asStringArray(value: unknown): string[] | undefined {
 }
 
 export function asDateLike(value: unknown): string | number | Date | undefined {
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    value instanceof Date
-  )
-    return value;
+  if (typeof value === "string" || typeof value === "number" || value instanceof Date) return value;
   return undefined;
 }

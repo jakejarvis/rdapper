@@ -11,19 +11,13 @@ import {
 } from "./whois/discovery";
 import { mergeWhoisRecords } from "./whois/merge";
 import { normalizeWhois } from "./whois/normalize";
-import {
-  collectWhoisReferralChain,
-  followWhoisReferrals,
-} from "./whois/referral";
+import { collectWhoisReferralChain, followWhoisReferrals } from "./whois/referral";
 
 /**
  * High-level lookup that prefers RDAP and falls back to WHOIS.
  * Ensures a standardized DomainRecord, independent of the source.
  */
-export async function lookup(
-  domain: string,
-  opts?: LookupOptions,
-): Promise<LookupResult> {
+export async function lookup(domain: string, opts?: LookupOptions): Promise<LookupResult> {
   try {
     if (!isLikelyDomain(domain)) {
       return { ok: false, error: "Input does not look like a domain" };
@@ -61,11 +55,7 @@ export async function lookup(
             return { ok: true, record };
           }
 
-          const rdapEnriched = await fetchAndMergeRdapRelated(
-            domain,
-            json,
-            opts,
-          );
+          const rdapEnriched = await fetchAndMergeRdapRelated(domain, json, opts);
           const record: DomainRecord = normalizeRdap(
             domain,
             tld,
@@ -92,9 +82,7 @@ export async function lookup(
     if (!whoisServer) {
       // Provide a clearer, actionable message
       const ianaText = await getIanaWhoisTextForTld(tld, opts);
-      const regUrl = ianaText
-        ? parseIanaRegistrationInfoUrl(ianaText)
-        : undefined;
+      const regUrl = ianaText ? parseIanaRegistrationInfoUrl(ianaText) : undefined;
       const hint = regUrl ? ` See registration info at ${regUrl}.` : "";
       return {
         ok: false,
@@ -138,10 +126,7 @@ export async function lookup(
  * Determine if a domain appears available (not registered).
  * Performs a lookup and resolves to a boolean. Rejects on lookup error.
  */
-export async function isAvailable(
-  domain: string,
-  opts?: LookupOptions,
-): Promise<boolean> {
+export async function isAvailable(domain: string, opts?: LookupOptions): Promise<boolean> {
   const res = await lookup(domain, opts);
   if (!res.ok || !res.record) throw new Error(res.error || "Lookup failed");
   return res.record.isRegistered === false;
@@ -151,10 +136,7 @@ export async function isAvailable(
  * Determine if a domain appears registered.
  * Performs a lookup and resolves to a boolean. Rejects on lookup error.
  */
-export async function isRegistered(
-  domain: string,
-  opts?: LookupOptions,
-): Promise<boolean> {
+export async function isRegistered(domain: string, opts?: LookupOptions): Promise<boolean> {
   const res = await lookup(domain, opts);
   if (!res.ok || !res.record) throw new Error(res.error || "Lookup failed");
   return res.record.isRegistered === true;
@@ -165,10 +147,5 @@ export async function isRegistered(
  */
 export const lookupDomain = lookup;
 
-export {
-  getDomainParts,
-  getDomainTld,
-  isLikelyDomain,
-  toRegistrableDomain,
-} from "./lib/domain";
+export { getDomainParts, getDomainTld, isLikelyDomain, toRegistrableDomain } from "./lib/domain";
 export type * from "./types";

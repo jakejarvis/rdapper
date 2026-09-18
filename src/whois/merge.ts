@@ -1,10 +1,7 @@
 import { uniq } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver } from "../types";
 
-function dedupeStatuses(
-  a?: DomainRecord["statuses"],
-  b?: DomainRecord["statuses"],
-) {
+function dedupeStatuses(a?: DomainRecord["statuses"], b?: DomainRecord["statuses"]) {
   const list = [...(a || []), ...(b || [])];
   const seen = new Set<string>();
   const out: NonNullable<DomainRecord["statuses"]> = [];
@@ -48,10 +45,7 @@ function dedupeContacts(a?: Contact[], b?: Contact[]) {
 }
 
 /** Conservative merge: start with base; fill missing scalars; union arrays; prefer more informative dates. */
-export function mergeWhoisRecords(
-  base: DomainRecord,
-  others: DomainRecord[],
-): DomainRecord {
+export function mergeWhoisRecords(base: DomainRecord, others: DomainRecord[]): DomainRecord {
   const merged: DomainRecord = { ...base };
   for (const cur of others) {
     merged.isRegistered = merged.isRegistered || cur.isRegistered;
@@ -60,15 +54,9 @@ export function mergeWhoisRecords(
     merged.reseller = merged.reseller ?? cur.reseller;
     merged.statuses = dedupeStatuses(merged.statuses, cur.statuses);
     // Dates: prefer earliest creation, latest updated/expiration when available
-    merged.creationDate = preferEarliestIso(
-      merged.creationDate,
-      cur.creationDate,
-    );
+    merged.creationDate = preferEarliestIso(merged.creationDate, cur.creationDate);
     merged.updatedDate = preferLatestIso(merged.updatedDate, cur.updatedDate);
-    merged.expirationDate = preferLatestIso(
-      merged.expirationDate,
-      cur.expirationDate,
-    );
+    merged.expirationDate = preferLatestIso(merged.expirationDate, cur.expirationDate);
     merged.deletionDate = merged.deletionDate ?? cur.deletionDate;
     merged.transferLock = Boolean(merged.transferLock || cur.transferLock);
     merged.dnssec = merged.dnssec ?? cur.dnssec;

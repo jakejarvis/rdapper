@@ -6,38 +6,40 @@ import { extractRdapRelatedLinks } from "./links";
 
 type Json = Record<string, unknown>;
 
+/** Coerce a loosely-typed JSON field to a string ("" for null/objects/etc.). */
+function str(val: unknown): string {
+  return typeof val === "string" || typeof val === "number" || typeof val === "boolean"
+    ? String(val)
+    : "";
+}
+
 /** Merge RDAP documents with a conservative, additive strategy. */
 export function mergeRdapDocs(baseDoc: unknown, others: unknown[]): unknown {
   const merged: Json = { ...(baseDoc as Json) };
   for (const doc of others) {
     const cur = (doc ?? {}) as Json;
     // status: array of strings
-    merged.status = uniqStrings([
-      ...toStringArray(merged.status),
-      ...toStringArray(cur.status),
-    ]);
+    merged.status = uniqStrings([...toStringArray(merged.status), ...toStringArray(cur.status)]);
     // events: array of objects; dedupe by eventAction + eventDate
     merged.events = uniqBy(
       [...toArray<Json>(merged.events), ...toArray<Json>(cur.events)],
-      (e) =>
-        `${String(e?.eventAction ?? "").toLowerCase()}|${String(e?.eventDate ?? "")}`,
+      (e) => `${str(e?.eventAction).toLowerCase()}|${str(e?.eventDate)}`,
     );
     // nameservers: array of objects; dedupe by ldhName/unicodeName
     merged.nameservers = uniqBy(
       [...toArray<Json>(merged.nameservers), ...toArray<Json>(cur.nameservers)],
-      (n) => `${String(n?.ldhName ?? n?.unicodeName ?? "").toLowerCase()}`,
+      (n) => `${str(n?.ldhName ?? n?.unicodeName).toLowerCase()}`,
     );
     // entities: array; dedupe by handle if present, else by roles+vcard hash
     merged.entities = uniqBy(
       [...toArray<Json>(merged.entities), ...toArray<Json>(cur.entities)],
       (e) =>
-        `${String(e?.handle ?? "").toLowerCase()}|${String(
+        `${str(e?.handle).toLowerCase()}|${String(
           JSON.stringify(e?.roles || []),
         ).toLowerCase()}|${String(JSON.stringify(e?.vcardArray || [])).toLowerCase()}`,
     );
     // secureDNS: prefer existing; fill if missing
-    if (merged.secureDNS == null && cur.secureDNS != null)
-      merged.secureDNS = cur.secureDNS;
+    if (merged.secureDNS == null && cur.secureDNS != null) merged.secureDNS = cur.secureDNS;
     // port43 (authoritative WHOIS): prefer existing; fill if missing
     if (merged.port43 == null && cur.port43 != null) merged.port43 = cur.port43;
     // remarks: concat simple strings if present
@@ -59,8 +61,7 @@ export async function fetchAndMergeRdapRelated(
   opts?: LookupOptions,
 ): Promise<{ merged: unknown; serversTried: string[] }> {
   const tried: string[] = [];
-  if (opts?.rdapFollowLinks === false)
-    return { merged: baseDoc, serversTried: tried };
+  if (opts?.rdapFollowLinks === false) return { merged: baseDoc, serversTried: tried };
   const maxHops = Math.max(0, opts?.maxRdapLinkHops ?? 2);
   if (maxHops === 0) return { merged: baseDoc, serversTried: tried };
 
@@ -83,8 +84,8 @@ export async function fetchAndMergeRdapRelated(
         tried.push(url);
         // only accept docs that appear related to the same domain when possible
         // if ldhName/unicodeName present, they should match the queried domain (case-insensitive)
-        const ldh = String((json as Json)?.ldhName ?? "").toLowerCase();
-        const uni = String((json as Json)?.unicodeName ?? "").toLowerCase();
+        const ldh = str((json as Json)?.ldhName).toLowerCase();
+        const uni = str((json as Json)?.unicodeName).toLowerCase();
         if (ldh && !sameDomain(ldh, domain)) continue;
         if (uni && !sameDomain(uni, domain)) continue;
         fetchedDocs.push(json);

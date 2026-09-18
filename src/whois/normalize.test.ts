@@ -159,12 +159,7 @@ Name Server: NS2.EXAMPLE.COM
 DNSSEC: unsigned
 Domain Status: clientTransferProhibited https://icann.org/epp#clientTransferProhibited
 `;
-  const rec = normalizeWhois(
-    "example.com",
-    "com",
-    text,
-    "whois.verisign-grs.com",
-  );
+  const rec = normalizeWhois("example.com", "com", text, "whois.verisign-grs.com");
   expect(Boolean(rec.creationDate)).toBe(true);
   expect(Boolean(rec.expirationDate)).toBe(true);
   expect(rec.source).toBe("whois");
@@ -178,12 +173,7 @@ Registrar URL: http://www.registrar.test
 Registrant Name: REDACTED FOR PRIVACY
 Registrant Organization: Example Org
 `;
-  const rec = normalizeWhois(
-    "example.com",
-    "com",
-    text,
-    "whois.verisign-grs.com",
-  );
+  const rec = normalizeWhois("example.com", "com", text, "whois.verisign-grs.com");
   expect(rec.privacyEnabled).toBe(true);
 });
 

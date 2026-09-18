@@ -30,18 +30,13 @@ vi.mock("./whois/referral.js", async () => {
   const client = await import("./whois/client.js");
   return {
     followWhoisReferrals: vi.fn(
-      async (
-        server: string,
-        domain: string,
-        opts?: import("./types").LookupOptions,
-      ) => client.whoisQuery(server, domain, opts),
+      async (server: string, domain: string, opts?: import("./types").LookupOptions) =>
+        client.whoisQuery(server, domain, opts),
     ),
     collectWhoisReferralChain: vi.fn(
-      async (
-        server: string,
-        domain: string,
-        opts?: import("./types").LookupOptions,
-      ) => [await client.whoisQuery(server, domain, opts)],
+      async (server: string, domain: string, opts?: import("./types").LookupOptions) => [
+        await client.whoisQuery(server, domain, opts),
+      ],
     ),
   };
 });
@@ -55,8 +50,7 @@ vi.mock("./whois/discovery.js", async () => {
 });
 
 vi.mock("./lib/domain.js", async () => {
-  const actual =
-    await vi.importActual<typeof import("./lib/domain.js")>("./lib/domain.js");
+  const actual = await vi.importActual<typeof import("./lib/domain.js")>("./lib/domain.js");
   return {
     ...actual,
     // Default to actual behavior; specific tests can override
@@ -75,9 +69,7 @@ import * as whoisReferral from "./whois/referral";
 describe("lookup orchestration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue(
-      "whois.verisign-grs.com",
-    );
+    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue("whois.verisign-grs.com");
   });
 
   it("uses RDAP when available and does not call WHOIS", async () => {
@@ -89,9 +81,7 @@ describe("lookup orchestration", () => {
   });
 
   it("falls back to WHOIS when RDAP fails", async () => {
-    vi.mocked(rdapClient.fetchRdapDomain).mockRejectedValueOnce(
-      new Error("rdap down"),
-    );
+    vi.mocked(rdapClient.fetchRdapDomain).mockRejectedValueOnce(new Error("rdap down"));
     const res = await lookup("example.com", { timeoutMs: 200 });
     expect(res.ok, res.error).toBe(true);
     expect(res.record?.source).toBe("whois");
@@ -155,9 +145,7 @@ describe("RDAP 404 handling", () => {
 describe("WHOIS referral & includeRaw", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue(
-      "whois.verisign-grs.com",
-    );
+    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue("whois.verisign-grs.com");
   });
 
   it("does not follow referral when followWhoisReferral is false", async () => {
