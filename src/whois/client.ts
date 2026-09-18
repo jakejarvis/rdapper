@@ -1,10 +1,12 @@
-import { withTimeout } from "../lib/async";
-import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { resolveTimeoutMs, throwIfAborted } from "../lib/async";
+import { abortError, RdapperError } from "../lib/errors";
 import type { LookupOptions } from "../types";
 
 export interface WhoisQueryResult {
   serverQueried: string;
   text: string;
+  /** True when the read timed out after some data had arrived, so `text` may be truncated */
+  partial?: boolean;
 }
 
 /**
@@ -27,7 +29,6 @@ export async function whoisQuery(
   query: string,
   options?: LookupOptions,
 ): Promise<WhoisQueryResult> {
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const port = 43;
   const host = server.replace(/^whois:\/\//i, "");
 
@@ -35,21 +36,19 @@ export async function whoisQuery(
   const transformer = WHOIS_QUERY_TRANSFORMERS[host];
   const transformedQuery = transformer ? transformer(query) : query;
 
-  const text = await withTimeout(
-    queryTcp(host, port, transformedQuery, options),
-    timeoutMs,
-    "WHOIS timeout",
-  );
-  return { serverQueried: server, text };
+  const { text, partial } = await queryTcp(host, port, transformedQuery, options);
+  return { serverQueried: server, text, ...(partial ? { partial } : {}) };
 }
 
 // Low-level WHOIS TCP client. Some registries require CRLF after the domain query.
+// The socket code owns the timeout so it can tell a connect timeout from a read timeout,
+// and can hand back whatever text arrived before a read timeout.
 async function queryTcp(
   host: string,
   port: number,
   query: string,
   options?: LookupOptions,
-): Promise<string> {
+): Promise<{ text: string; partial?: boolean }> {
   let net: typeof import("node:net") | null;
   try {
     net = await import("node:net");
@@ -58,36 +57,84 @@ async function queryTcp(
   }
 
   if (!net?.createConnection) {
-    throw new Error(
+    throw new RdapperError(
+      "unsupported_runtime",
       "WHOIS client is only available in Node.js runtimes; try setting `rdapOnly: true`.",
     );
   }
 
+  const signal = options?.signal;
+  throwIfAborted(signal);
+  const timeoutMs = resolveTimeoutMs(options);
+  const createConnection = net.createConnection;
+
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection({ host, port });
-    let data = "";
+    const socket = createConnection({ host, port });
+    const chunks: Buffer[] = [];
+    let received = 0;
+    let connected = false;
     let done = false;
-    const cleanup = () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const text = () => Buffer.concat(chunks).toString("utf8");
+    const finish = (settle: () => void) => {
       if (done) return;
       done = true;
+      if (timer !== undefined) clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       socket.destroy();
+      settle();
     };
-    socket.setTimeout((options?.timeoutMs ?? DEFAULT_TIMEOUT_MS) - 1000, () => {
-      cleanup();
-      reject(new Error("WHOIS socket timeout"));
+    const onAbort = () => finish(() => reject(abortError(signal as AbortSignal)));
+
+    if (timeoutMs !== undefined) {
+      timer = setTimeout(() => {
+        if (!connected) {
+          finish(() =>
+            reject(
+              new RdapperError("timeout", `WHOIS connect timeout (${host})`, {
+                stage: "connect",
+              }),
+            ),
+          );
+        } else if (received > 0) {
+          finish(() => resolve({ text: text(), partial: true }));
+        } else {
+          finish(() =>
+            reject(new RdapperError("timeout", `WHOIS read timeout (${host})`, { stage: "read" })),
+          );
+        }
+      }, timeoutMs);
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    socket.on("error", (err: NodeJS.ErrnoException) => {
+      // Servers that reset the connection after replying still gave us an answer
+      if (err.code === "ECONNRESET" && received > 0) {
+        finish(() => resolve({ text: text(), partial: true }));
+      } else {
+        finish(() => reject(err));
+      }
     });
-    socket.on("error", (err) => {
-      cleanup();
-      reject(err);
-    });
-    socket.on("data", (chunk) => {
-      data += chunk.toString("utf8");
+    socket.on("data", (chunk: Buffer | string) => {
+      const buf = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
+      chunks.push(buf);
+      received += buf.length;
     });
     socket.on("end", () => {
-      cleanup();
-      resolve(data);
+      finish(() => resolve({ text: text() }));
+    });
+    // A close without a preceding end/error (half-open teardown) would otherwise wait out the timer
+    socket.on("close", () => {
+      if (connected) finish(() => resolve({ text: text() }));
+      else {
+        finish(() =>
+          reject(new RdapperError("connect_failed", `WHOIS connection closed (${host})`)),
+        );
+      }
     });
     socket.on("connect", () => {
+      connected = true;
       socket.write(`${query}\r\n`);
     });
   });

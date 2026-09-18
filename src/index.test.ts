@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Shared, safe default mocks. Individual describes override implementations as needed.
 vi.mock("./rdap/bootstrap.js", () => ({
-  getRdapBaseUrlsForTld: vi.fn(async () => ["https://rdap.example/"]),
+  getRdapBaseUrlsForPublicSuffix: vi.fn(async () => ["https://rdap.example/"]),
 }));
 
 vi.mock("./rdap/client.js", () => ({
@@ -45,7 +45,7 @@ vi.mock("./whois/discovery.js", async () => {
   const actual = await vi.importActual("./whois/discovery.js");
   return {
     ...actual,
-    ianaWhoisServerForTld: vi.fn(async () => "whois.verisign-grs.com"),
+    discoverWhoisServer: vi.fn(async () => ({ server: "whois.verisign-grs.com" })),
   };
 });
 
@@ -69,7 +69,9 @@ import * as whoisReferral from "./whois/referral";
 describe("lookup orchestration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue("whois.verisign-grs.com");
+    vi.mocked(discovery.discoverWhoisServer).mockResolvedValue({
+      server: "whois.verisign-grs.com",
+    });
   });
 
   it("uses RDAP when available and does not call WHOIS", async () => {
@@ -145,7 +147,9 @@ describe("RDAP 404 handling", () => {
 describe("WHOIS referral & includeRaw", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(discovery.ianaWhoisServerForTld).mockResolvedValue("whois.verisign-grs.com");
+    vi.mocked(discovery.discoverWhoisServer).mockResolvedValue({
+      server: "whois.verisign-grs.com",
+    });
   });
 
   it("does not follow referral when followWhoisReferral is false", async () => {

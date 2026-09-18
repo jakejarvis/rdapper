@@ -1,6 +1,7 @@
-import { withTimeout } from "../lib/async";
-import { DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { resolveTimeoutMs, throwIfAborted, withTimeout } from "../lib/async";
+import { RdapperError } from "../lib/errors";
 import { resolveFetch } from "../lib/fetch";
+import { type LookupContext, traced } from "../lib/trace";
 import type { LookupOptions } from "../types";
 import { extractRdapRelatedLinks } from "./links";
 
@@ -59,6 +60,7 @@ export async function fetchAndMergeRdapRelated(
   domain: string,
   baseDoc: unknown,
   opts?: LookupOptions,
+  ctx?: LookupContext,
 ): Promise<{ merged: unknown; serversTried: string[] }> {
   const tried: string[] = [];
   if (opts?.rdapFollowLinks === false) return { merged: baseDoc, serversTried: tried };
@@ -71,6 +73,7 @@ export async function fetchAndMergeRdapRelated(
 
   // BFS: collect links from the latest merged doc only to keep it simple and bounded
   while (hops < maxHops) {
+    throwIfAborted(opts?.signal);
     const links = extractRdapRelatedLinks(current, {
       rdapLinkRels: opts?.rdapLinkRels,
     });
@@ -78,9 +81,10 @@ export async function fetchAndMergeRdapRelated(
     if (nextBatch.length === 0) break;
     const fetchedDocs: unknown[] = [];
     for (const url of nextBatch) {
+      throwIfAborted(opts?.signal);
       visited.add(url);
       try {
-        const { json } = await fetchRdapUrl(url, opts);
+        const { json } = await fetchRdapUrl(url, opts, ctx);
         tried.push(url);
         // only accept docs that appear related to the same domain when possible
         // if ldhName/unicodeName present, they should match the queried domain (case-insensitive)
@@ -90,7 +94,8 @@ export async function fetchAndMergeRdapRelated(
         if (uni && !sameDomain(uni, domain)) continue;
         fetchedDocs.push(json);
       } catch {
-        // ignore failures and continue
+        // caller abort / deadline stops the lookup; other failures are recorded in attempts
+        throwIfAborted(opts?.signal);
       }
     }
     if (fetchedDocs.length === 0) break;
@@ -103,24 +108,30 @@ export async function fetchAndMergeRdapRelated(
 async function fetchRdapUrl(
   url: string,
   options?: LookupOptions,
+  ctx?: LookupContext,
 ): Promise<{ url: string; json: unknown }> {
   const fetchFn = resolveFetch(options);
-  const res = await withTimeout(
-    fetchFn(url, {
-      method: "GET",
-      headers: { accept: "application/rdap+json, application/json" },
-      signal: options?.signal,
-    }),
-    options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    "RDAP link fetch timeout",
+  return traced(ctx, { phase: "rdap_link", server: url }, () =>
+    withTimeout(
+      resolveTimeoutMs(options),
+      "RDAP link fetch timeout",
+      options?.signal,
+      async (signal) => {
+        const res = await fetchFn(url, {
+          method: "GET",
+          headers: { accept: "application/rdap+json, application/json" },
+          signal,
+        });
+        if (!res.ok) {
+          const bodyText = await res.text().catch(() => "");
+          throw new RdapperError("http_error", `RDAP ${res.status}: ${bodyText.slice(0, 500)}`);
+        }
+        const json = await res.json();
+        // Optionally parse Link header for future iterations; the main loop inspects body.links
+        return { url, json };
+      },
+    ),
   );
-  if (!res.ok) {
-    const bodyText = await res.text();
-    throw new Error(`RDAP ${res.status}: ${bodyText.slice(0, 500)}`);
-  }
-  const json = await res.json();
-  // Optionally parse Link header for future iterations; the main loop inspects body.links
-  return { url, json };
 }
 
 function toArray<T>(val: unknown): T[] {

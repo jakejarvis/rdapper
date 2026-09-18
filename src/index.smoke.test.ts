@@ -1,5 +1,3 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: this is fine for tests */
-
 import { expect, test } from "vitest";
 import { isAvailable, isRegistered, lookup } from ".";
 
@@ -43,10 +41,10 @@ for (const c of rdapCases) {
         (rec.registrar?.name || "").toLowerCase().includes("internet assigned numbers authority"),
       ).toBe(true);
     }
-    // IANA nameservers
+    // Nameservers
     const ns = (rec.nameservers || []).map((n) => n.host.toLowerCase());
-    expect(ns.includes("a.iana-servers.net")).toBe(true);
-    expect(ns.includes("b.iana-servers.net")).toBe(true);
+    // The example domains' nameserver operator changes over time; only require that some exist
+    expect(ns.length).toBeGreaterThan(0);
     if (c.expectDs) {
       // DS records typically present for .com/.net
       expect(rec.dnssec?.enabled).toBe(true);
@@ -78,8 +76,7 @@ maybeTest("WHOIS-only lookup for example.com", async () => {
   expect(res.record?.whoisServer?.toLowerCase()).toBe("whois.verisign-grs.com");
   expect(res.record?.registrar?.ianaId).toBe("376");
   const ns = (res.record?.nameservers || []).map((n) => n.host.toLowerCase());
-  expect(ns.includes("a.iana-servers.net")).toBe(true);
-  expect(ns.includes("b.iana-servers.net")).toBe(true);
+  expect(ns.length).toBeGreaterThan(0);
 });
 
 // WHOIS-only smoke for example.io (RDAP-incompatible TLD)

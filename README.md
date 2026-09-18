@@ -421,7 +421,8 @@ const result = await lookup("example.com", {
 
 ### Options
 
-- `timeoutMs?: number` – Total timeout budget per network operation (default `15000`).
+- `timeoutMs?: number` – Timeout for each individual network operation (default `10000`). A lookup performs several operations in sequence, so see [Timeouts and diagnostics](#timeouts-and-diagnostics) for the worst case. A value that is not a finite number > 0 disables the timeout.
+- `deadlineMs?: number` – Overall deadline for the whole lookup (default: none). When it elapses, in-flight requests and WHOIS sockets are cancelled and the result has `errorCode: "timeout"`.
 - `rdapOnly?: boolean` – Only attempt RDAP; do not fall back to WHOIS.
 - `whoisOnly?: boolean` – Skip RDAP and query WHOIS directly.
 - `followWhoisReferral?: boolean` – Follow registrar referral from the TLD WHOIS (default `true`).
@@ -434,7 +435,50 @@ const result = await lookup("example.com", {
 - `customFetch?: FetchLike` – Custom fetch implementation for all HTTP requests (see [Custom Fetch Implementation](#custom-fetch-implementation)).
 - `whoisHints?: Record<string, string>` – Override/add authoritative WHOIS per TLD (keys are lowercase TLDs, values may include or omit `whois://`).
 - `includeRaw?: boolean` – Include `rawRdap`/`rawWhois` in the returned record (default `false`).
-- `signal?: AbortSignal` – Optional cancellation signal.
+- `signal?: AbortSignal` – Optional cancellation signal. Honored by RDAP requests _and_ WHOIS sockets; an abort stops the lookup rather than falling through to the next phase.
+
+### Timeouts and diagnostics
+
+`lookup()` never throws for lookup failures; it resolves to a `LookupResult`:
+
+```ts
+interface LookupResult {
+  ok: boolean;
+  record?: DomainRecord;
+  error?: string; // human-readable
+  errorCode?: LookupErrorCode; // machine-readable, present when ok is false
+  errorPhase?: "rdap_bootstrap" | "rdap" | "rdap_link" | "iana" | "whois";
+  errorServer?: string; // RDAP URL or WHOIS host involved in the failure
+  attempts: LookupAttempt[]; // every network operation, in order (always present)
+}
+```
+
+`errorCode` is one of `invalid_input`, `invalid_tld`, `timeout`, `aborted`, `connect_failed`, `http_error`, `rdap_unavailable`, `no_server`, `no_data`, `unsupported_runtime`, or `unknown`. Prefer it over matching `error` text. `timeout` covers every timeout, including `deadlineMs`; `aborted` means your own `signal` fired.
+
+Each entry in `attempts` describes one operation, successful or not, so a failure that was recovered from (say, an RDAP server that was down before WHOIS answered) is still visible:
+
+```json
+{
+  "phase": "whois",
+  "server": "whois.example",
+  "ok": false,
+  "durationMs": 1503,
+  "errorCode": "timeout",
+  "error": "WHOIS connect timeout (whois.example)",
+  "stage": "connect"
+}
+```
+
+`stage` (`"connect"` or `"read"`) is set on WHOIS timeouts. If a WHOIS server sends some data but never closes the connection, the timeout **resolves with the partial text** instead of failing, and the attempt is marked `partial: true`.
+
+`timeoutMs` applies to each network operation (including reading the response body), not to the lookup as a whole. Without `deadlineMs`, the worst case is roughly `timeoutMs × (1 bootstrap + N RDAP servers + up to 2 RDAP links + 1 IANA + 1 + maxWhoisReferralHops WHOIS queries)`. Set `deadlineMs` to put a hard cap on the total, e.g. for serverless functions with an execution limit:
+
+```ts
+const result = await lookup("example.sh", { timeoutMs: 4000, deadlineMs: 9000 });
+if (!result.ok && result.errorCode === "timeout") {
+  console.warn(result.errorPhase, result.attempts);
+}
+```
 
 ### `DomainRecord` schema
 
@@ -536,7 +580,7 @@ interface DomainRecord {
   - Queries the TLD WHOIS and follows registrar referrals recursively up to `maxWhoisReferralHops` (unless disabled).
   - Normalizes common key/value variants across gTLD/ccTLD formats (dates, statuses, nameservers, contacts). Availability is inferred from common phrases (best‑effort heuristic).
 
-Timeouts are enforced per request using a simple race against `timeoutMs` (default 15s). All network I/O is performed with global `fetch` (RDAP) and a raw TCP socket (WHOIS).
+Each network operation is bounded by `timeoutMs` (default 10s) and cancelled when it elapses (`fetch` is aborted through its `signal`; WHOIS sockets are destroyed); an optional `deadlineMs` bounds the whole lookup. All network I/O is performed with global `fetch` (RDAP) and a raw TCP socket (WHOIS).
 
 ## Development
 

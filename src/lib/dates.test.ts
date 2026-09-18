@@ -1,5 +1,3 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: this is fine for tests */
-
 import { expect, test } from "vitest";
 import { toISO } from "./dates";
 

@@ -1,4 +1,7 @@
-import type { LookupOptions } from "../types";
+import { throwIfAborted } from "../lib/async";
+import { classifyError } from "../lib/errors";
+import { type LookupContext, traced } from "../lib/trace";
+import type { LookupErrorCode, LookupOptions } from "../types";
 import { whoisQuery } from "./client";
 import { WHOIS_TLD_EXCEPTIONS } from "./servers";
 
@@ -43,14 +46,71 @@ export function parseIanaRegistrationInfoUrl(text: string): string | undefined {
   return undefined;
 }
 
+const IANA_WHOIS_HOST = "whois.iana.org";
+
+/** Result of {@link discoverWhoisServer}. */
+export interface WhoisDiscovery {
+  /** Authoritative WHOIS server for the TLD, if one was found */
+  server?: string;
+  /** Raw IANA response, when IANA was queried successfully */
+  ianaText?: string;
+  /** Why the IANA query failed, when it did (timeouts and connection errors are otherwise silent) */
+  ianaFailure?: { code: LookupErrorCode; error: string };
+}
+
+/** Query IANA's WHOIS for a TLD, recording the attempt. Throws on failure. */
+async function queryIana(
+  tld: string,
+  options?: LookupOptions,
+  ctx?: LookupContext,
+): Promise<string> {
+  const res = await traced(ctx, { phase: "iana", server: IANA_WHOIS_HOST }, () =>
+    whoisQuery(IANA_WHOIS_HOST, tld.toLowerCase(), options),
+  );
+  return res.text;
+}
+
+/**
+ * Discover the authoritative WHOIS server for a TLD in a single IANA round trip, keeping the
+ * IANA text (for registration-info hints) and any failure (so callers can report it accurately).
+ * Caller aborts and deadlines are rethrown rather than swallowed.
+ */
+export async function discoverWhoisServer(
+  tld: string,
+  options?: LookupOptions,
+  ctx?: LookupContext,
+): Promise<WhoisDiscovery> {
+  const key = tld.toLowerCase();
+  // 1) Explicit hint override
+  const hint = options?.whoisHints?.[key];
+  if (hint) return { server: normalizeServer(hint) };
+
+  // 2) IANA WHOIS authoritative discovery over TCP 43
+  const out: WhoisDiscovery = {};
+  try {
+    const text = await queryIana(key, options, ctx);
+    out.ianaText = text;
+    const server = parseIanaWhoisServer(text);
+    if (server) return { ...out, server: normalizeServer(server) };
+  } catch (err) {
+    throwIfAborted(options?.signal);
+    out.ianaFailure = classifyError(err);
+  }
+
+  // 3) Curated exceptions
+  const exception = WHOIS_TLD_EXCEPTIONS[key];
+  if (exception) return { ...out, server: normalizeServer(exception) };
+
+  return out;
+}
+
 /** Fetch raw IANA WHOIS text for a TLD (best-effort). */
 export async function getIanaWhoisTextForTld(
   tld: string,
   options?: LookupOptions,
 ): Promise<string | undefined> {
   try {
-    const res = await whoisQuery("whois.iana.org", tld.toLowerCase(), options);
-    return res.text;
+    return await queryIana(tld, options);
   } catch {
     return undefined;
   }
@@ -62,27 +122,9 @@ export async function getIanaWhoisTextForTld(
 export async function ianaWhoisServerForTld(
   tld: string,
   options?: LookupOptions,
+  ctx?: LookupContext,
 ): Promise<string | undefined> {
-  const key = tld.toLowerCase();
-  // 1) Explicit hint override
-  const hint = options?.whoisHints?.[key];
-  if (hint) return normalizeServer(hint);
-
-  // 2) IANA WHOIS authoritative discovery over TCP 43
-  try {
-    const res = await whoisQuery("whois.iana.org", key, options);
-    const txt = res.text;
-    const server = parseIanaWhoisServer(txt);
-    if (server) return normalizeServer(server);
-  } catch {
-    // fallthrough to exceptions/guess
-  }
-
-  // 3) Curated exceptions
-  const exception = WHOIS_TLD_EXCEPTIONS[key];
-  if (exception) return normalizeServer(exception);
-
-  return undefined;
+  return (await discoverWhoisServer(tld, options, ctx)).server;
 }
 
 /**

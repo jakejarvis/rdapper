@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BootstrapData } from "../types";
-import { getRdapBaseUrlsForTld } from "./bootstrap";
+import { getRdapBaseUrlsForPublicSuffix, getRdapBaseUrlsForTld } from "./bootstrap";
 
 // Mock the global fetch function
 beforeAll(() => {
@@ -310,7 +310,7 @@ describe("getRdapBaseUrlsForTld with customBootstrapData", () => {
       expect(fetch).toHaveBeenCalledWith(
         "https://data.iana.org/rdap/dns.json",
         expect.objectContaining({
-          signal,
+          signal: expect.any(AbortSignal),
         }),
       );
     });
@@ -435,9 +435,49 @@ describe("getRdapBaseUrlsForTld with customBootstrapData", () => {
       expect(customFetch).toHaveBeenCalledWith(
         "https://data.iana.org/rdap/dns.json",
         expect.objectContaining({
-          signal,
+          signal: expect.any(AbortSignal),
         }),
       );
     });
+  });
+});
+
+describe("getRdapBaseUrlsForPublicSuffix", () => {
+  const data: BootstrapData = {
+    version: "1.0",
+    publication: "2025-01-15T12:00:00Z",
+    services: [
+      [["uk"], ["https://rdap.nominet.uk/uk/"]],
+      [["com"], ["https://rdap.verisign.com/com/v1/"]],
+      [["org.uk"], ["https://rdap.example-org-uk/"]],
+    ],
+  };
+  const okFetch = () => vi.fn().mockResolvedValue({ ok: true, json: async () => data } as Response);
+
+  it("falls back to the registry TLD with a single bootstrap fetch", async () => {
+    const customFetch = okFetch();
+    const urls = await getRdapBaseUrlsForPublicSuffix("co.uk", { customFetch });
+    expect(urls).toEqual(["https://rdap.nominet.uk/uk/"]);
+    expect(customFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers an exact multi-label match over the registry TLD", async () => {
+    const urls = await getRdapBaseUrlsForPublicSuffix("org.uk", { customBootstrapData: data });
+    expect(urls).toEqual(["https://rdap.example-org-uk/"]);
+  });
+
+  it("returns single-label results unchanged and empty when nothing matches", async () => {
+    expect(await getRdapBaseUrlsForPublicSuffix("com", { customBootstrapData: data })).toEqual([
+      "https://rdap.verisign.com/com/v1/",
+    ]);
+    expect(await getRdapBaseUrlsForPublicSuffix("co.zz", { customBootstrapData: data })).toEqual(
+      [],
+    );
+  });
+
+  it("returns [] (no retry) when the bootstrap fetch fails", async () => {
+    const customFetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
+    expect(await getRdapBaseUrlsForPublicSuffix("co.uk", { customFetch })).toEqual([]);
+    expect(customFetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,25 +1,23 @@
-import { withTimeout } from "../lib/async";
-import { DEFAULT_BOOTSTRAP_URL, DEFAULT_TIMEOUT_MS } from "../lib/constants";
+import { resolveTimeoutMs, throwIfAborted, withTimeout } from "../lib/async";
+import { DEFAULT_BOOTSTRAP_URL } from "../lib/constants";
+import { RdapperError } from "../lib/errors";
 import { resolveFetch } from "../lib/fetch";
+import { type LookupContext, traced } from "../lib/trace";
 import type { BootstrapData, LookupOptions } from "../types";
 
 /**
- * Resolve RDAP base URLs for a given TLD using IANA's bootstrap registry.
- * Returns zero or more base URLs (always suffixed with a trailing slash).
+ * Load RDAP bootstrap data, or `undefined` when it could not be fetched (the failure is
+ * recorded in `ctx.attempts` and the caller falls back to WHOIS).
  *
  * Bootstrap data is resolved in the following priority order:
  * 1. `options.customBootstrapData` - pre-loaded bootstrap data (no fetch)
  * 2. `options.customBootstrapUrl` - custom URL to fetch bootstrap data from
  * 3. Default IANA URL - https://data.iana.org/rdap/dns.json
- *
- * @param tld - The top-level domain to look up (e.g., "com", "co.uk")
- * @param options - Optional lookup options including custom bootstrap data/URL
- * @returns Array of RDAP base URLs for the TLD, or empty array if none found
  */
-export async function getRdapBaseUrlsForTld(
-  tld: string,
+async function loadBootstrapData(
   options?: LookupOptions,
-): Promise<string[]> {
+  ctx?: LookupContext,
+): Promise<BootstrapData | undefined> {
   let data: BootstrapData;
 
   // Priority 1: Use pre-loaded bootstrap data if provided (no fetch)
@@ -55,28 +53,42 @@ export async function getRdapBaseUrlsForTld(
     const fetchFn = resolveFetch(options);
     const bootstrapUrl = options?.customBootstrapUrl ?? DEFAULT_BOOTSTRAP_URL;
     try {
-      const res = await withTimeout(
-        fetchFn(bootstrapUrl, {
-          method: "GET",
-          headers: { accept: "application/json" },
-          signal: options?.signal,
-        }),
-        options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-        "RDAP bootstrap timeout",
+      data = await traced(ctx, { phase: "rdap_bootstrap", server: bootstrapUrl }, () =>
+        withTimeout(
+          resolveTimeoutMs(options),
+          "RDAP bootstrap timeout",
+          options?.signal,
+          async (signal) => {
+            const res = await fetchFn(bootstrapUrl, {
+              method: "GET",
+              headers: { accept: "application/json" },
+              signal,
+            });
+            if (!res.ok) {
+              throw new RdapperError("http_error", `RDAP bootstrap ${res.status}`);
+            }
+            const json = (await res.json()) as BootstrapData;
+            if (!json || !Array.isArray(json.services)) {
+              throw new RdapperError("no_data", "RDAP bootstrap has no services array");
+            }
+            return json;
+          },
+        ),
       );
-      if (!res.ok) return [];
-      data = (await res.json()) as BootstrapData;
     } catch (err: unknown) {
-      // Preserve caller cancellation behavior - rethrow if explicitly aborted
-      if (err instanceof Error && err.name === "AbortError") {
-        throw err;
-      }
+      // Preserve caller cancellation behavior - rethrow if explicitly aborted (or deadline hit)
+      if (options?.signal?.aborted) throwIfAborted(options.signal);
+      if (err instanceof Error && err.name === "AbortError") throw err;
       // Network, timeout, or JSON parse errors - return empty array to fall back to WHOIS
-      return [];
+      // (the failure is recorded in ctx.attempts)
+      return undefined;
     }
   }
+  return data;
+}
 
-  // Parse the bootstrap data to find matching base URLs for the TLD
+/** Find the RDAP base URLs listed for `tld` (always suffixed with a trailing slash). */
+function matchBases(data: BootstrapData, tld: string): string[] {
   const target = tld.toLowerCase();
   const bases: string[] = [];
   for (const svc of data.services) {
@@ -92,4 +104,42 @@ export async function getRdapBaseUrlsForTld(
     }
   }
   return Array.from(new Set(bases));
+}
+
+/**
+ * Resolve RDAP base URLs for a given TLD using IANA's bootstrap registry.
+ * Returns zero or more base URLs (always suffixed with a trailing slash).
+ * See {@link loadBootstrapData} for how the bootstrap data is sourced.
+ *
+ * @param tld - The top-level domain to look up (e.g., "com", "co.uk")
+ * @param options - Optional lookup options including custom bootstrap data/URL
+ * @param ctx - Optional context that records the bootstrap fetch as an attempt
+ * @returns Array of RDAP base URLs for the TLD, or empty array if none found
+ */
+export async function getRdapBaseUrlsForTld(
+  tld: string,
+  options?: LookupOptions,
+  ctx?: LookupContext,
+): Promise<string[]> {
+  const data = await loadBootstrapData(options, ctx);
+  return data ? matchBases(data, tld) : [];
+}
+
+/**
+ * Like {@link getRdapBaseUrlsForTld}, for a public suffix that may be multi-label.
+ *
+ * IANA lists registry TLDs (`uk`, `br`), not public suffixes (`co.uk`, `com.br`), so the
+ * suffix usually misses and the last label is tried next. The bootstrap data is loaded
+ * once and reused for both lookups.
+ */
+export async function getRdapBaseUrlsForPublicSuffix(
+  publicSuffix: string,
+  options?: LookupOptions,
+  ctx?: LookupContext,
+): Promise<string[]> {
+  const data = await loadBootstrapData(options, ctx);
+  if (!data) return [];
+  const bases = matchBases(data, publicSuffix);
+  if (bases.length > 0 || !publicSuffix.includes(".")) return bases;
+  return matchBases(data, publicSuffix.split(".").pop() ?? publicSuffix);
 }

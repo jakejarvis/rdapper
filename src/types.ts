@@ -237,8 +237,17 @@ export interface BootstrapData {
  * ```
  */
 export interface LookupOptions {
-  /** Total timeout budget */
+  /**
+   * Timeout for each individual network operation (default 10000). A lookup makes several
+   * sequential operations, so its worst-case duration is a multiple of this; use `deadlineMs`
+   * to bound the whole lookup. A value that is not a finite number > 0 disables the timeout.
+   */
   timeoutMs?: number;
+  /**
+   * Overall deadline for the entire lookup in milliseconds (default: none). When it elapses,
+   * in-flight requests and WHOIS sockets are cancelled and the result has `errorCode: "timeout"`.
+   */
+  deadlineMs?: number;
   /** Don't fall back to WHOIS */
   rdapOnly?: boolean;
   /** Don't attempt RDAP */
@@ -297,7 +306,7 @@ export interface LookupOptions {
    * - RDAP domain lookup requests
    * - RDAP related/entity link requests
    *
-   * If not provided, the global `fetch` function is used (Node.js 18+ or browser).
+   * If not provided, the global `fetch` function is used (Node.js 20+ or browser).
    *
    * @example
    * ```ts
@@ -364,12 +373,59 @@ export interface LookupResult {
   record?: DomainRecord;
   /** Error message describing why the lookup failed, present when ok is false */
   error?: string;
+  /** Machine-readable failure reason, present when ok is false */
+  errorCode?: LookupErrorCode;
+  /** Phase in which the failure occurred, when known */
+  errorPhase?: LookupAttempt["phase"];
+  /** Server (RDAP URL or WHOIS host) involved in the failure, when known */
+  errorServer?: string;
+  /** Every network attempt made during the lookup, in order (successes and failures) */
+  attempts: LookupAttempt[];
+}
+
+/**
+ * Machine-readable reason a lookup (or one attempt within it) failed.
+ *
+ * - `timeout`: any timeout, including the overall `deadlineMs`
+ * - `aborted`: the caller's `AbortSignal` fired
+ * - `connect_failed`: network-level failure (ECONNREFUSED, ECONNRESET, ENOTFOUND, ...)
+ * - `http_error`: RDAP responded with a non-2xx status other than 404
+ * - `rdap_unavailable`: `rdapOnly` was set and no RDAP server worked
+ * - `no_server`: IANA answered but no WHOIS server exists for the TLD
+ * - `unsupported_runtime`: WHOIS needs `node:net`, which this runtime lacks
+ */
+export type LookupErrorCode =
+  | "invalid_input"
+  | "invalid_tld"
+  | "timeout"
+  | "aborted"
+  | "connect_failed"
+  | "http_error"
+  | "rdap_unavailable"
+  | "no_server"
+  | "no_data"
+  | "unsupported_runtime"
+  | "unknown";
+
+/** One network operation performed during a lookup. */
+export interface LookupAttempt {
+  phase: "rdap_bootstrap" | "rdap" | "rdap_link" | "iana" | "whois";
+  /** RDAP base/link URL or WHOIS host */
+  server: string;
+  ok: boolean;
+  durationMs: number;
+  errorCode?: LookupErrorCode;
+  error?: string;
+  /** WHOIS timeouts only: whether the socket never connected or connected but sent nothing */
+  stage?: "connect" | "read";
+  /** WHOIS only: the read timed out after some data arrived, so the text is partial */
+  partial?: boolean;
 }
 
 /**
  * Fetch-compatible function signature.
  *
  * Used internally for dependency injection and testing. Matches the signature
- * of the global `fetch` function available in Node.js 18+ and browsers.
+ * of the global `fetch` function available in Node.js 20+ and browsers.
  */
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;

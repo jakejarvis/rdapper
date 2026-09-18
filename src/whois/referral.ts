@@ -1,3 +1,5 @@
+import { throwIfAborted } from "../lib/async";
+import { type LookupContext, traced } from "../lib/trace";
 import type { LookupOptions } from "../types";
 import type { WhoisQueryResult } from "./client";
 import { whoisQuery } from "./client";
@@ -12,23 +14,25 @@ export async function followWhoisReferrals(
   initialServer: string,
   domain: string,
   opts?: LookupOptions,
+  ctx?: LookupContext,
 ): Promise<WhoisQueryResult> {
   const maxHops = Math.max(0, opts?.maxWhoisReferralHops ?? 2);
   // First query against the provided server
-  let current = await whoisQuery(initialServer, domain, opts);
+  let current = await tracedWhoisQuery(initialServer, domain, opts, ctx);
   if (opts?.followWhoisReferral === false || maxHops === 0) return current;
 
   const visited = new Set<string>([normalize(current.serverQueried)]);
   let hops = 0;
   // Iterate while we see a new referral and are under hop limit
   while (hops < maxHops) {
+    throwIfAborted(opts?.signal);
     const next = extractWhoisReferral(current.text);
     if (!next) break;
     const normalized = normalize(next);
     if (visited.has(normalized)) break; // cycle protection / same as current
     visited.add(normalized);
     try {
-      const res = await whoisQuery(next, domain, opts);
+      const res = await tracedWhoisQuery(next, domain, opts, ctx);
       // Prefer authoritative TLD response when registrar contradicts availability
       const registeredBefore = !isAvailableByWhois(current.text);
       const registeredAfter = !isAvailableByWhois(res.text);
@@ -38,6 +42,7 @@ export async function followWhoisReferrals(
       }
       current = res; // adopt registrar when it does not downgrade registration
     } catch {
+      throwIfAborted(opts?.signal);
       // If referral server fails, stop following and keep the last good response
       break;
     }
@@ -55,10 +60,11 @@ export async function collectWhoisReferralChain(
   initialServer: string,
   domain: string,
   opts?: LookupOptions,
+  ctx?: LookupContext,
 ): Promise<WhoisQueryResult[]> {
   const results: WhoisQueryResult[] = [];
   const maxHops = Math.max(0, opts?.maxWhoisReferralHops ?? 2);
-  const first = await whoisQuery(initialServer, domain, opts);
+  const first = await tracedWhoisQuery(initialServer, domain, opts, ctx);
   results.push(first);
   if (opts?.followWhoisReferral === false || maxHops === 0) return results;
 
@@ -66,13 +72,14 @@ export async function collectWhoisReferralChain(
   let current = first;
   let hops = 0;
   while (hops < maxHops) {
+    throwIfAborted(opts?.signal);
     const next = extractWhoisReferral(current.text);
     if (!next) break;
     const normalized = normalize(next);
     if (visited.has(normalized)) break;
     visited.add(normalized);
     try {
-      const res = await whoisQuery(next, domain, opts);
+      const res = await tracedWhoisQuery(next, domain, opts, ctx);
       // If registrar claims availability while TLD indicated registered, stop.
       const registeredBefore = !isAvailableByWhois(current.text);
       const registeredAfter = !isAvailableByWhois(res.text);
@@ -83,6 +90,7 @@ export async function collectWhoisReferralChain(
       results.push(res);
       current = res;
     } catch {
+      throwIfAborted(opts?.signal);
       break;
     }
     hops += 1;
@@ -92,4 +100,22 @@ export async function collectWhoisReferralChain(
 
 function normalize(server: string): string {
   return server.replace(/^whois:\/\//i, "").toLowerCase();
+}
+
+/** whoisQuery wrapped so each query (TLD or registrar hop) is recorded as an attempt. */
+function tracedWhoisQuery(
+  server: string,
+  domain: string,
+  opts?: LookupOptions,
+  ctx?: LookupContext,
+): Promise<WhoisQueryResult> {
+  return traced(
+    ctx,
+    { phase: "whois", server: server.replace(/^whois:\/\//i, "") },
+    async (notes) => {
+      const res = await whoisQuery(server, domain, opts);
+      if (res.partial) notes.partial = true;
+      return res;
+    },
+  );
 }
