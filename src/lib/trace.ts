@@ -33,13 +33,14 @@ export async function traced<T>(
     ctx.attempts.push({ ...meta, ok: true, durationMs: Date.now() - start, ...notes });
     return result;
   } catch (err) {
-    const { code, error } = classifyError(err);
+    const { code, error, retryAfterMs } = classifyError(err);
     const attempt: LookupAttempt = {
       ...meta,
       ok: false,
       durationMs: Date.now() - start,
       errorCode: code,
       error,
+      ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
       ...(err instanceof RdapperError && err.stage ? { stage: err.stage } : {}),
       ...notes,
     };

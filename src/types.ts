@@ -379,6 +379,8 @@ export interface LookupResult {
   errorPhase?: LookupAttempt["phase"];
   /** Server (RDAP URL or WHOIS host) involved in the failure, when known */
   errorServer?: string;
+  /** Suggested wait before retrying, from an RDAP `Retry-After` header on a `rate_limited` failure */
+  retryAfterMs?: number;
   /** Every network attempt made during the lookup, in order (successes and failures) */
   attempts: LookupAttempt[];
 }
@@ -393,6 +395,7 @@ export interface LookupResult {
  * - `rdap_unavailable`: `rdapOnly` was set and no RDAP server worked
  * - `no_server`: IANA answered but no WHOIS server exists for the TLD
  * - `rate_limited`: the server throttled the query (RDAP 429, or a WHOIS throttle notice)
+ * - `blocked`: the WHOIS server refuses this client outright (retrying will not help)
  * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record
  * - `unsupported_runtime`: WHOIS needs `node:net`, which this runtime lacks
  */
@@ -407,6 +410,7 @@ export type LookupErrorCode =
   | "no_server"
   | "no_data"
   | "rate_limited"
+  | "blocked"
   | "unparseable"
   | "unsupported_runtime"
   | "unknown";
@@ -420,6 +424,8 @@ export interface LookupAttempt {
   durationMs: number;
   errorCode?: LookupErrorCode;
   error?: string;
+  /** `rate_limited` RDAP failures only: the server's `Retry-After`, in milliseconds */
+  retryAfterMs?: number;
   /** WHOIS failures only: `connect` if the socket never connected; `read` if it connected but sent nothing (timeout, or closed without a response, which is `no_data`) */
   stage?: "connect" | "read";
   /** WHOIS only: the read timed out after some data arrived, so the text is partial */

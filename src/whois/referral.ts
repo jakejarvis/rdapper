@@ -7,53 +7,7 @@ import { whoisQuery } from "./client";
 import { extractWhoisReferral } from "./discovery";
 import { isSafeWhoisReferralHost } from "./host";
 import { isAvailableByWhois, normalizeWhois } from "./normalize";
-import { detectWhoisThrottle, looksEmptyWhois } from "./throttle";
-
-/**
- * Follow registrar WHOIS referrals up to a configured hop limit.
- * Returns the last successful WHOIS response (best-effort; keeps original on failures).
- */
-export async function followWhoisReferrals(
-  initialServer: string,
-  domain: string,
-  opts?: LookupOptions,
-  ctx?: LookupContext,
-): Promise<WhoisQueryResult> {
-  const maxHops = Math.max(0, opts?.maxWhoisReferralHops ?? 2);
-  // First query against the provided server
-  let current = await tracedWhoisQuery(initialServer, domain, opts, ctx);
-  if (opts?.followWhoisReferral === false || maxHops === 0) return current;
-
-  const visited = new Set<string>([normalize(current.serverQueried)]);
-  let hops = 0;
-  // Iterate while we see a new referral and are under hop limit
-  while (hops < maxHops) {
-    throwIfAborted(opts?.signal);
-    const next = extractWhoisReferral(current.text);
-    if (!next) break;
-    if (!isSafeWhoisReferralHost(normalize(next))) break;
-    const normalized = normalize(next);
-    if (visited.has(normalized)) break; // cycle protection / same as current
-    visited.add(normalized);
-    try {
-      const res = await tracedWhoisQuery(next, domain, opts, ctx);
-      // Prefer authoritative TLD response when registrar contradicts availability
-      const registeredBefore = !isAvailableByWhois(current.text);
-      const registeredAfter = !isAvailableByWhois(res.text);
-      if (registeredBefore && !registeredAfter) {
-        // Registrar claims availability but TLD shows registered: keep TLD
-        break;
-      }
-      current = res; // adopt registrar when it does not downgrade registration
-    } catch {
-      throwIfAborted(opts?.signal);
-      // If referral server fails, stop following and keep the last good response
-      break;
-    }
-    hops += 1;
-  }
-  return current;
-}
+import { detectWhoisRefusal, looksEmptyWhois } from "./throttle";
 
 /**
  * Collect the WHOIS referral chain starting from the TLD server.
@@ -88,7 +42,7 @@ export async function collectWhoisReferralChain(
     if (visited.has(normalized)) break;
     visited.add(normalized);
     try {
-      const res = await tracedWhoisQuery(next, domain, opts, ctx);
+      const res = await tracedWhoisQuery(next, domain, opts, ctx, true);
       // If registrar claims availability while TLD indicated registered, stop.
       const registeredBefore = !isAvailableByWhois(current.text);
       const registeredAfter = !isAvailableByWhois(res.text);
@@ -109,8 +63,8 @@ export async function collectWhoisReferralChain(
       throwIfAborted(opts?.signal);
       const { code, error } = classifyError(err);
       warnings.push(
-        code === "rate_limited"
-          ? `WHOIS referral ${normalized} rate limited the query`
+        code === "rate_limited" || code === "blocked"
+          ? `WHOIS referral ${normalized} ${code === "blocked" ? "blocked" : "rate limited"} the query`
           : `WHOIS referral ${normalized} failed (${error})`,
       );
       break;
@@ -130,17 +84,21 @@ function tracedWhoisQuery(
   domain: string,
   opts?: LookupOptions,
   ctx?: LookupContext,
+  referral = false,
 ): Promise<WhoisQueryResult> {
   return traced(
     ctx,
     { phase: "whois", server: server.replace(/^whois:\/\//i, "") },
     async (notes) => {
-      const res = await whoisQuery(server, domain, opts);
+      const res = await whoisQuery(server, domain, opts, { blockPrivateAddresses: referral });
       if (res.partial) notes.partial = true;
-      if (detectWhoisThrottle(res.text)) {
+      const refusal = detectWhoisRefusal(res.text);
+      if (refusal) {
         throw new RdapperError(
-          "rate_limited",
-          `WHOIS server ${res.serverQueried} rate limited the query`,
+          refusal,
+          refusal === "blocked"
+            ? `WHOIS server ${res.serverQueried} refuses requests from this client`
+            : `WHOIS server ${res.serverQueried} rate limited the query`,
           { stage: "read" },
         );
       }

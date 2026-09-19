@@ -23,7 +23,7 @@ function failure(
   ctx: LookupContext,
   errorCode: LookupErrorCode,
   error: string,
-  where?: { phase?: LookupAttempt["phase"]; server?: string },
+  where?: { phase?: LookupAttempt["phase"]; server?: string; retryAfterMs?: number },
 ): LookupResult {
   return {
     ok: false,
@@ -31,6 +31,7 @@ function failure(
     errorCode,
     ...(where?.phase ? { errorPhase: where.phase } : {}),
     ...(where?.server ? { errorServer: where.server } : {}),
+    ...(where?.retryAfterMs !== undefined ? { retryAfterMs: where.retryAfterMs } : {}),
     attempts: ctx.attempts,
   };
 }
@@ -70,9 +71,13 @@ export async function lookup(domain: string, opts?: LookupOptions): Promise<Look
   try {
     return await runLookup(domain, signalOpts, ctx);
   } catch (err: unknown) {
-    const { code, error } = classifyError(err);
+    const { code, error, retryAfterMs } = classifyError(err);
     const source = attemptForError(err);
-    return failure(ctx, code, error, { phase: source?.phase, server: source?.server });
+    return failure(ctx, code, error, {
+      phase: source?.phase,
+      server: source?.server,
+      retryAfterMs,
+    });
   } finally {
     if (deadlineTimer !== undefined) clearTimeout(deadlineTimer);
     link?.dispose();
@@ -142,7 +147,7 @@ async function runLookup(
         ctx,
         "rdap_unavailable",
         `RDAP not available or failed for TLD '${tld}'${detail}. Many TLDs do not publish RDAP; try WHOIS fallback (omit rdapOnly).`,
-        { phase: last?.phase, server: last?.server },
+        { phase: last?.phase, server: last?.server, retryAfterMs: last?.retryAfterMs },
       );
     }
   }

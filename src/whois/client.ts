@@ -1,6 +1,7 @@
 import { resolveTimeoutMs, throwIfAborted } from "../lib/async";
 import { abortError, RdapperError } from "../lib/errors";
 import type { LookupOptions } from "../types";
+import { isPrivateIp } from "./host";
 
 export interface WhoisQueryResult {
   serverQueried: string;
@@ -20,6 +21,15 @@ const WHOIS_QUERY_TRANSFORMERS: Record<string, (query: string) => string> = {
   "whois.jprs.jp": (query) => `${query}/e`, // Append /e for English-only response
 };
 
+export interface WhoisTransportOptions {
+  /**
+   * Reject any resolved address that is not public unicast, checked at connect time so it covers
+   * DNS rebinding and hostnames that resolve to private ranges. Used for referral hosts, which
+   * come from upstream response text.
+   */
+  blockPrivateAddresses?: boolean;
+}
+
 /**
  * Perform a WHOIS query against an RFC 3912 server over TCP 43.
  * Returns the raw text and the server used.
@@ -28,6 +38,7 @@ export async function whoisQuery(
   server: string,
   query: string,
   options?: LookupOptions,
+  transport?: WhoisTransportOptions,
 ): Promise<WhoisQueryResult> {
   const port = 43;
   const host = server.replace(/^whois:\/\//i, "");
@@ -36,7 +47,7 @@ export async function whoisQuery(
   const transformer = WHOIS_QUERY_TRANSFORMERS[host];
   const transformedQuery = transformer ? transformer(query) : query;
 
-  const { text, partial } = await queryTcp(host, port, transformedQuery, options);
+  const { text, partial } = await queryTcp(host, port, transformedQuery, options, transport);
   return { serverQueried: server, text, ...(partial ? { partial } : {}) };
 }
 
@@ -48,6 +59,7 @@ async function queryTcp(
   port: number,
   query: string,
   options?: LookupOptions,
+  transport?: WhoisTransportOptions,
 ): Promise<{ text: string; partial?: boolean }> {
   let net: typeof import("node:net") | null;
   try {
@@ -67,9 +79,16 @@ async function queryTcp(
   throwIfAborted(signal);
   const timeoutMs = resolveTimeoutMs(options);
   const createConnection = net.createConnection;
+  const guardedLookup = transport?.blockPrivateAddresses
+    ? await privateBlockingLookup()
+    : undefined;
 
   return new Promise((resolve, reject) => {
-    const socket = createConnection({ host, port });
+    const socket = createConnection({
+      host,
+      port,
+      ...(guardedLookup ? { lookup: guardedLookup } : {}),
+    });
     const chunks: Buffer[] = [];
     let received = 0;
     let connected = false;
@@ -164,4 +183,29 @@ async function queryTcp(
       socket.write(`${query}\r\n`);
     });
   });
+}
+
+/** A `dns.lookup` replacement that fails the connection when any answer is a non-public address. */
+async function privateBlockingLookup(): Promise<
+  NonNullable<import("node:net").TcpNetConnectOpts["lookup"]>
+> {
+  const dns = await import("node:dns");
+  return (hostname, options, callback) => {
+    dns.lookup(hostname, options, (err, address, family) => {
+      if (err) return callback(err, address as never, family as never);
+      const answers = Array.isArray(address) ? address.map((a) => a.address) : [address];
+      const bad = answers.find((a) => isPrivateIp(a));
+      if (bad) {
+        return callback(
+          new RdapperError(
+            "connect_failed",
+            `WHOIS host ${hostname} resolves to a non-public address`,
+          ),
+          "" as never,
+          4 as never,
+        );
+      }
+      callback(err, address as never, family as never);
+    });
+  };
 }

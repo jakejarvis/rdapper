@@ -1,26 +1,40 @@
 import { describe, expect, it } from "vitest";
-import { detectWhoisThrottle, looksEmptyWhois } from "./throttle";
+import { detectWhoisRefusal, looksEmptyWhois } from "./throttle";
 
-describe("detectWhoisThrottle", () => {
+describe("detectWhoisRefusal", () => {
   it.each([
     "WHOIS LIMIT EXCEEDED - SEE WWW.PIR.ORG/WHOIS FOR DETAILS",
     "Quota exceeded",
-    "You have exceeded the allowed number of queries. Try again later.",
+    "You have exceeded the allowed number of queries.",
     "Too many requests",
     "<!DOCTYPE html><html><body>Service Unavailable</body></html>",
-    "Your IP has been blocked",
-  ])("flags %j", (text) => {
-    expect(detectWhoisThrottle(text)).toBe(true);
+  ])("classifies %j as rate_limited", (text) => {
+    expect(detectWhoisRefusal(text)).toBe("rate_limited");
+  });
+
+  it.each([
+    "Requests of this client are not permitted. Please use https://www.nic.ch/whois/ for queries.",
+    "Your IP address has been blocked",
+  ])("classifies %j as blocked", (text) => {
+    expect(detectWhoisRefusal(text)).toBe("blocked");
+  });
+
+  it.each([
+    "This domain name is blocked. Try again later.",
+    "Access denied for reserved name. No match for EXAMPLE.COM",
+    "No match for EXAMPLE.COM",
+    "Domain is banned by policy",
+  ])("leaves %j alone", (text) => {
+    expect(detectWhoisRefusal(text)).toBeUndefined();
   });
 
   it("does not flag a long real record that mentions rate limits", () => {
     const record = `Domain Name: EXAMPLE.COM\nRegistrar: Test\n${"Name Server: NS.EXAMPLE.COM\n".repeat(100)}\nNote: queries are subject to rate limiting\n`;
-    expect(detectWhoisThrottle(record)).toBe(false);
+    expect(detectWhoisRefusal(record)).toBeUndefined();
   });
 
-  it("does not flag empty or ordinary availability text", () => {
-    expect(detectWhoisThrottle(undefined)).toBe(false);
-    expect(detectWhoisThrottle("No match for EXAMPLE.COM")).toBe(false);
+  it("returns undefined for empty input", () => {
+    expect(detectWhoisRefusal(undefined)).toBeUndefined();
   });
 });
 

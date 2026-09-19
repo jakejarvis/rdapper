@@ -9,6 +9,7 @@ export class RdapperError extends Error {
   readonly phase?: LookupAttempt["phase"];
   readonly server?: string;
   readonly stage?: "connect" | "read";
+  readonly retryAfterMs?: number;
 
   constructor(
     code: LookupErrorCode,
@@ -17,6 +18,7 @@ export class RdapperError extends Error {
       phase?: LookupAttempt["phase"];
       server?: string;
       stage?: "connect" | "read";
+      retryAfterMs?: number;
       cause?: unknown;
     },
   ) {
@@ -26,6 +28,7 @@ export class RdapperError extends Error {
     this.phase = extra?.phase;
     this.server = extra?.server;
     this.stage = extra?.stage;
+    this.retryAfterMs = extra?.retryAfterMs;
   }
 }
 
@@ -74,8 +77,18 @@ function describeError(err: unknown, errno: string | undefined): string {
 }
 
 /** Map any thrown value to a stable error code plus a human-readable message. */
-export function classifyError(err: unknown): { code: LookupErrorCode; error: string } {
-  if (err instanceof RdapperError) return { code: err.code, error: err.message };
+export function classifyError(err: unknown): {
+  code: LookupErrorCode;
+  error: string;
+  retryAfterMs?: number;
+} {
+  if (err instanceof RdapperError) {
+    return {
+      code: err.code,
+      error: err.message,
+      ...(err.retryAfterMs !== undefined ? { retryAfterMs: err.retryAfterMs } : {}),
+    };
+  }
 
   const name = err instanceof Error ? err.name : "";
   const cause = err instanceof Error ? (err as { cause?: unknown }).cause : undefined;

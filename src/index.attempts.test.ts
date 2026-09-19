@@ -55,6 +55,14 @@ describe("throttle and empty-response guards", () => {
     expect(res.errorServer).toBe("whois.verisign-grs.com");
   });
 
+  it("fails with blocked (not rate_limited) for a permanent refusal", async () => {
+    vi.mocked(whoisQuery).mockImplementation(
+      ianaThen("Requests of this client are not permitted. Please use https://www.nic.ch/whois/"),
+    );
+    const res = await lookup("example.com", { whoisOnly: true });
+    expect(res.errorCode).toBe("blocked");
+  });
+
   it("fails with unparseable when a long reply has no fields and no availability phrase", async () => {
     vi.mocked(whoisQuery).mockImplementation(ianaThen(`${"lorem ipsum ".repeat(300)}\n`));
     const res = await lookup("example.com", { whoisOnly: true });
@@ -78,6 +86,22 @@ describe("throttle and empty-response guards", () => {
     expect(res.ok, res.error).toBe(true);
     expect(res.attempts[0]).toMatchObject({ errorCode: "rate_limited" });
     expect(res.attempts[0]?.error).toContain("Retry-After: 30");
+    expect(res.attempts[0]?.retryAfterMs).toBe(30_000);
+  });
+});
+
+describe("rdapOnly rate limiting", () => {
+  it("surfaces retryAfterMs on the result", async () => {
+    const customFetch: FetchLike = vi.fn(
+      async () => new Response("", { status: 429, headers: { "retry-after": "12" } }),
+    );
+    const res = await lookup("example.com", {
+      customBootstrapData: bootstrap,
+      customFetch,
+      rdapOnly: true,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.retryAfterMs).toBe(12_000);
   });
 });
 

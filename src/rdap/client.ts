@@ -15,6 +15,15 @@ export interface RdapFetchResult {
   notFound?: boolean;
 }
 
+/** Parse a `Retry-After` header (delay-seconds or HTTP date) into milliseconds. */
+export function parseRetryAfterMs(value: string | null | undefined): number | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  if (/^\d+$/.test(v)) return Number(v) * 1000;
+  const at = Date.parse(v);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
+}
+
 /**
  * Fetch RDAP JSON for a domain from a specific RDAP base URL.
  * Returns `{ notFound: true }` for HTTP 404 (domain not registered).
@@ -46,9 +55,11 @@ export async function fetchRdapDomain(
         }
         if (res.status === 429) {
           const retryAfter = res.headers.get("retry-after");
+          const retryAfterMs = parseRetryAfterMs(retryAfter);
           throw new RdapperError(
             "rate_limited",
             `RDAP 429 rate limited${retryAfter ? ` (Retry-After: ${retryAfter})` : ""}`,
+            retryAfterMs !== undefined ? { retryAfterMs } : undefined,
           );
         }
         if (!res.ok) {
