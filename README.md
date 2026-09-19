@@ -449,11 +449,20 @@ interface LookupResult {
   errorCode?: LookupErrorCode; // machine-readable, present when ok is false
   errorPhase?: "rdap_bootstrap" | "rdap" | "rdap_link" | "iana" | "whois";
   errorServer?: string; // RDAP URL or WHOIS host involved in the failure
+  retryAfterMs?: number; // server's Retry-After, when it was the terminal failure (see below)
   attempts: LookupAttempt[]; // every network operation, in order (always present)
 }
 ```
 
-`errorCode` is one of `invalid_input`, `invalid_tld`, `timeout`, `aborted`, `connect_failed`, `http_error`, `rdap_unavailable`, `no_server`, `no_data`, `unsupported_runtime`, or `unknown`. Prefer it over matching `error` text. `timeout` covers every timeout, including `deadlineMs`; `aborted` means your own `signal` fired.
+`errorCode` is one of `invalid_input`, `invalid_tld`, `timeout`, `aborted`, `connect_failed`, `http_error`, `rdap_unavailable`, `no_server`, `no_data`, `rate_limited`, `blocked`, `unparseable`, `unsupported_runtime`, or `unknown`. Prefer it over matching `error` text. `timeout` covers every timeout, including `deadlineMs`; `aborted` means your own `signal` fired.
+
+- `rate_limited`: the server throttled the query (RDAP `429`, or a short WHOIS notice such as `WHOIS LIMIT EXCEEDED`). Retrying later may work.
+- `blocked`: a WHOIS server refuses this client outright (e.g. `.ch`: "Requests of this client are not permitted"). Retrying will not help.
+- `unparseable`: WHOIS replied with text that is neither an availability notice nor a domain record (no registrar, dates, nameservers, statuses or contacts). It is reported as a failure rather than a "registered" record.
+
+`retryAfterMs` carries an RDAP `Retry-After` header (on `429` or `503`, as seconds or an HTTP date). It is set on the matching entry in `attempts`, and on the top-level result only when that RDAP attempt is the terminal failure, as with `rdapOnly`. Normally an RDAP failure falls through to WHOIS, so the value stays in `attempts`. The value is passed through as sent and is not capped, so clamp it before using it as a delay.
+
+WHOIS referral hosts (from `Registrar WHOIS Server:` and similar fields) come from upstream response text, so they are validated (hostname syntax, no private/loopback/link-local IP literals) and their resolved address is checked at connect time. An unsafe, blocked or throttled referral is skipped with an entry in `record.warnings`. The first WHOIS server, from IANA or `whoisHints`, is trusted and not checked.
 
 Each entry in `attempts` describes one operation, successful or not, so a failure that was recovered from (say, an RDAP server that was down before WHOIS answered) is still visible:
 

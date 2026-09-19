@@ -17,7 +17,7 @@ const THROTTLE_PATTERNS: RegExp[] = [
 // Permanent: this client is refused outright, so retrying will not help.
 const BLOCK_PATTERNS: RegExp[] = [
   /requests\s+of\s+this\s+client\s+are\s+not\s+permitted/i, // .ch/.li
-  /\b(your|this)\s+(ip|address|client)\b.{0,60}\b(blocked|banned|blacklisted|not\s+permitted)\b/i,
+  /\b(your|this)\s+(ip|address|client)\b[\s\S]{0,60}\b(blocked|banned|blacklisted|not\s+permitted)\b/i,
 ];
 
 /**

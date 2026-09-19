@@ -15,6 +15,7 @@ describe("detectWhoisRefusal", () => {
   it.each([
     "Requests of this client are not permitted. Please use https://www.nic.ch/whois/ for queries.",
     "Your IP address has been blocked",
+    "Your IP address\nhas been blocked",
   ])("classifies %j as blocked", (text) => {
     expect(detectWhoisRefusal(text)).toBe("blocked");
   });

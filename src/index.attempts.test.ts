@@ -91,6 +91,19 @@ describe("throttle and empty-response guards", () => {
 });
 
 describe("rdapOnly rate limiting", () => {
+  it("parses Retry-After on a 503", async () => {
+    const customFetch: FetchLike = vi.fn(
+      async () => new Response("", { status: 503, headers: { "retry-after": "5" } }),
+    );
+    const res = await lookup("example.com", {
+      customBootstrapData: bootstrap,
+      customFetch,
+      rdapOnly: true,
+    });
+    expect(res.errorCode).toBe("rdap_unavailable");
+    expect(res.retryAfterMs).toBe(5_000);
+  });
+
   it("surfaces retryAfterMs on the result", async () => {
     const customFetch: FetchLike = vi.fn(
       async () => new Response("", { status: 429, headers: { "retry-after": "12" } }),

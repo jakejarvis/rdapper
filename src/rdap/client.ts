@@ -64,7 +64,13 @@ export async function fetchRdapDomain(
         }
         if (!res.ok) {
           const bodyText = await res.text().catch(() => "");
-          throw new RdapperError("http_error", `RDAP ${res.status}: ${bodyText.slice(0, 500)}`);
+          const retryAfterMs =
+            res.status === 503 ? parseRetryAfterMs(res.headers.get("retry-after")) : undefined;
+          throw new RdapperError(
+            "http_error",
+            `RDAP ${res.status}: ${bodyText.slice(0, 500)}`,
+            retryAfterMs !== undefined ? { retryAfterMs } : undefined,
+          );
         }
         const json = await res.json();
         return { url, json };
