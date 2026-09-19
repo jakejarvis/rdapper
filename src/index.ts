@@ -16,7 +16,8 @@ import type {
 import { discoverWhoisServer, parseIanaRegistrationInfoUrl } from "./whois/discovery";
 import { mergeWhoisRecords } from "./whois/merge";
 import { normalizeWhois } from "./whois/normalize";
-import { collectWhoisReferralChain, followWhoisReferrals } from "./whois/referral";
+import { looksEmptyWhois } from "./whois/throttle";
+import { collectWhoisReferralChain } from "./whois/referral";
 
 function failure(
   ctx: LookupContext,
@@ -172,19 +173,12 @@ async function runLookup(
 
   // Query the TLD server first; optionally follow registrar referrals (multi-hop)
   // Collect the chain and coalesce so we don't lose details when a registrar returns minimal/empty data.
-  const chain = await collectWhoisReferralChain(whoisServer, domain, opts, ctx);
-  if (chain.length === 0) {
-    // Fallback to previous behavior as a safety net
-    const res = await followWhoisReferrals(whoisServer, domain, opts, ctx);
-    const record: DomainRecord = normalizeWhois(
-      domain,
-      tld,
-      res.text,
-      res.serverQueried,
-      !!opts?.includeRaw,
-    );
-    return { ok: true, record, attempts: ctx.attempts };
-  }
+  const { results: chain, warnings } = await collectWhoisReferralChain(
+    whoisServer,
+    domain,
+    opts,
+    ctx,
+  );
 
   // Normalize all WHOIS texts in the chain and merge conservatively
   const normalizedRecords = chain.map((r) =>
@@ -194,7 +188,19 @@ async function runLookup(
   if (!first) {
     return failure(ctx, "no_data", "No WHOIS data retrieved");
   }
+  // A "registered" answer with no fields at all is an error page or throttle notice, not a record
+  if (first.isRegistered && looksEmptyWhois(first)) {
+    return failure(
+      ctx,
+      "unparseable",
+      `WHOIS response from ${whoisServer} contained no recognizable domain data`,
+      { phase: "whois", server: whoisServer },
+    );
+  }
   const mergedRecord = rest.length ? mergeWhoisRecords(first, rest) : first;
+  if (warnings.length) {
+    mergedRecord.warnings = [...(mergedRecord.warnings ?? []), ...warnings];
+  }
   return { ok: true, record: mergedRecord, attempts: ctx.attempts };
 }
 

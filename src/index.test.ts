@@ -21,7 +21,7 @@ vi.mock("./rdap/merge.js", () => ({
 
 vi.mock("./whois/client.js", () => ({
   whoisQuery: vi.fn(async () => ({
-    text: "Domain Name: EXAMPLE.COM",
+    text: "Domain Name: EXAMPLE.COM\nRegistrar: Test Registrar",
     serverQueried: "whois.verisign-grs.com",
   })),
 }));
@@ -29,14 +29,11 @@ vi.mock("./whois/client.js", () => ({
 vi.mock("./whois/referral.js", async () => {
   const client = await import("./whois/client.js");
   return {
-    followWhoisReferrals: vi.fn(
-      async (server: string, domain: string, opts?: import("./types").LookupOptions) =>
-        client.whoisQuery(server, domain, opts),
-    ),
     collectWhoisReferralChain: vi.fn(
-      async (server: string, domain: string, opts?: import("./types").LookupOptions) => [
-        await client.whoisQuery(server, domain, opts),
-      ],
+      async (server: string, domain: string, opts?: import("./types").LookupOptions) => ({
+        results: [await client.whoisQuery(server, domain, opts)],
+        warnings: [],
+      }),
     ),
   };
 });
@@ -60,7 +57,6 @@ vi.mock("./lib/domain.js", async () => {
 
 import { lookup } from ".";
 import * as rdapClient from "./rdap/client";
-import type { WhoisQueryResult } from "./whois/client";
 import * as whoisClient from "./whois/client";
 import * as discovery from "./whois/discovery";
 import * as whoisReferral from "./whois/referral";
@@ -167,12 +163,15 @@ describe("WHOIS referral & includeRaw", () => {
   });
 
   it("includes rawWhois when includeRaw is true", async () => {
-    vi.mocked(whoisReferral.followWhoisReferrals).mockImplementation(
-      async (_server: string, _domain: string): Promise<WhoisQueryResult> => ({
-        text: "Domain Name: EXAMPLE.COM\nRegistrar: Registrar LLC",
-        serverQueried: "whois.registrar.test",
-      }),
-    );
+    vi.mocked(whoisReferral.collectWhoisReferralChain).mockResolvedValueOnce({
+      results: [
+        {
+          text: "Domain Name: EXAMPLE.COM\nRegistrar: Registrar LLC",
+          serverQueried: "whois.registrar.test",
+        },
+      ],
+      warnings: [],
+    });
 
     const res = await lookup("example.com", {
       timeoutMs: 200,

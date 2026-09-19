@@ -22,7 +22,7 @@ import { collectWhoisReferralChain } from "./referral";
 
 describe("WHOIS coalescing", () => {
   it("retains TLD data when registrar provides no details", async () => {
-    const chain = await collectWhoisReferralChain("whois.nic.io", "gitpod.io", {
+    const { results: chain } = await collectWhoisReferralChain("whois.nic.io", "gitpod.io", {
       followWhoisReferral: true,
       maxWhoisReferralHops: 2,
     });

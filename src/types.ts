@@ -392,6 +392,8 @@ export interface LookupResult {
  * - `http_error`: RDAP responded with a non-2xx status other than 404
  * - `rdap_unavailable`: `rdapOnly` was set and no RDAP server worked
  * - `no_server`: IANA answered but no WHOIS server exists for the TLD
+ * - `rate_limited`: the server throttled the query (RDAP 429, or a WHOIS throttle notice)
+ * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record
  * - `unsupported_runtime`: WHOIS needs `node:net`, which this runtime lacks
  */
 export type LookupErrorCode =
@@ -404,6 +406,8 @@ export type LookupErrorCode =
   | "rdap_unavailable"
   | "no_server"
   | "no_data"
+  | "rate_limited"
+  | "unparseable"
   | "unsupported_runtime"
   | "unknown";
 

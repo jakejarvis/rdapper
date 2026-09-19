@@ -1,10 +1,13 @@
 import { throwIfAborted } from "../lib/async";
+import { classifyError, RdapperError } from "../lib/errors";
 import { type LookupContext, traced } from "../lib/trace";
 import type { LookupOptions } from "../types";
 import type { WhoisQueryResult } from "./client";
 import { whoisQuery } from "./client";
 import { extractWhoisReferral } from "./discovery";
-import { isAvailableByWhois } from "./normalize";
+import { isSafeWhoisReferralHost } from "./host";
+import { isAvailableByWhois, normalizeWhois } from "./normalize";
+import { detectWhoisThrottle, looksEmptyWhois } from "./throttle";
 
 /**
  * Follow registrar WHOIS referrals up to a configured hop limit.
@@ -28,6 +31,7 @@ export async function followWhoisReferrals(
     throwIfAborted(opts?.signal);
     const next = extractWhoisReferral(current.text);
     if (!next) break;
+    if (!isSafeWhoisReferralHost(normalize(next))) break;
     const normalized = normalize(next);
     if (visited.has(normalized)) break; // cycle protection / same as current
     visited.add(normalized);
@@ -61,12 +65,13 @@ export async function collectWhoisReferralChain(
   domain: string,
   opts?: LookupOptions,
   ctx?: LookupContext,
-): Promise<WhoisQueryResult[]> {
+): Promise<{ results: WhoisQueryResult[]; warnings: string[] }> {
   const results: WhoisQueryResult[] = [];
+  const warnings: string[] = [];
   const maxHops = Math.max(0, opts?.maxWhoisReferralHops ?? 2);
   const first = await tracedWhoisQuery(initialServer, domain, opts, ctx);
   results.push(first);
-  if (opts?.followWhoisReferral === false || maxHops === 0) return results;
+  if (opts?.followWhoisReferral === false || maxHops === 0) return { results, warnings };
 
   const visited = new Set<string>([normalize(first.serverQueried)]);
   let current = first;
@@ -76,6 +81,10 @@ export async function collectWhoisReferralChain(
     const next = extractWhoisReferral(current.text);
     if (!next) break;
     const normalized = normalize(next);
+    if (!isSafeWhoisReferralHost(normalized)) {
+      warnings.push(`Skipped WHOIS referral to unsafe host "${next.slice(0, 100)}"`);
+      break;
+    }
     if (visited.has(normalized)) break;
     visited.add(normalized);
     try {
@@ -87,15 +96,28 @@ export async function collectWhoisReferralChain(
         // Do not adopt or append contradictory registrar; keep authoritative TLD only.
         break;
       }
+      if (
+        registeredAfter &&
+        looksEmptyWhois(normalizeWhois(domain, "", res.text, res.serverQueried))
+      ) {
+        warnings.push(`WHOIS referral ${normalized} returned no usable data`);
+        break;
+      }
       results.push(res);
       current = res;
-    } catch {
+    } catch (err) {
       throwIfAborted(opts?.signal);
+      const { code, error } = classifyError(err);
+      warnings.push(
+        code === "rate_limited"
+          ? `WHOIS referral ${normalized} rate limited the query`
+          : `WHOIS referral ${normalized} failed (${error})`,
+      );
       break;
     }
     hops += 1;
   }
-  return results;
+  return { results, warnings };
 }
 
 function normalize(server: string): string {
@@ -115,6 +137,13 @@ function tracedWhoisQuery(
     async (notes) => {
       const res = await whoisQuery(server, domain, opts);
       if (res.partial) notes.partial = true;
+      if (detectWhoisThrottle(res.text)) {
+        throw new RdapperError(
+          "rate_limited",
+          `WHOIS server ${res.serverQueried} rate limited the query`,
+          { stage: "read" },
+        );
+      }
       return res;
     },
   );

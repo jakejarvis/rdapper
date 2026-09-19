@@ -32,7 +32,7 @@ describe("WHOIS referral contradiction handling", () => {
   });
 
   it("collects chain and does not append contradictory registrar", async () => {
-    const chain = await collectWhoisReferralChain("whois.nic.io", "raindrop.io", {
+    const { results: chain } = await collectWhoisReferralChain("whois.nic.io", "raindrop.io", {
       followWhoisReferral: true,
       maxWhoisReferralHops: 2,
     });
@@ -40,5 +40,39 @@ describe("WHOIS referral contradiction handling", () => {
     // Mocked registrar is contradictory, so chain should contain only the TLD response
     expect(chain.length).toBe(1);
     expect(chain[0]?.serverQueried).toBe("whois.nic.io");
+  });
+});
+
+describe("WHOIS referral safety", () => {
+  it("does not query an unsafe referral host and reports a warning", async () => {
+    const { whoisQuery } = await import("./client.js");
+    const mocked = vi.mocked(whoisQuery);
+    mocked.mockClear();
+    mocked.mockImplementation(async (server: string) => ({
+      serverQueried: server,
+      text: "Domain Name: EVIL.COM\nCreation Date: 2013-08-20T20:30:16Z\nRegistrar WHOIS Server: 169.254.169.254\n",
+    }));
+    const { results, warnings } = await collectWhoisReferralChain("whois.nic.io", "evil.com", {
+      followWhoisReferral: true,
+    });
+    expect(results).toHaveLength(1);
+    expect(mocked).toHaveBeenCalledTimes(1);
+    expect(warnings[0]).toMatch(/unsafe host/);
+  });
+
+  it("keeps the registry record when the registrar throttles", async () => {
+    const { whoisQuery } = await import("./client.js");
+    vi.mocked(whoisQuery).mockImplementation(async (server: string) => ({
+      serverQueried: server,
+      text:
+        server === "whois.nic.io"
+          ? "Domain Name: X.IO\nCreation Date: 2013-08-20T20:30:16Z\nRegistrar WHOIS Server: whois.1api.net\n"
+          : "WHOIS LIMIT EXCEEDED",
+    }));
+    const { results, warnings } = await collectWhoisReferralChain("whois.nic.io", "x.io", {
+      followWhoisReferral: true,
+    });
+    expect(results).toHaveLength(1);
+    expect(warnings[0]).toMatch(/rate limited/);
   });
 });

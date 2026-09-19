@@ -44,6 +44,13 @@ export async function fetchRdapDomain(
         if (res.status === 404) {
           return { url, json: null, notFound: true };
         }
+        if (res.status === 429) {
+          const retryAfter = res.headers.get("retry-after");
+          throw new RdapperError(
+            "rate_limited",
+            `RDAP 429 rate limited${retryAfter ? ` (Retry-After: ${retryAfter})` : ""}`,
+          );
+        }
         if (!res.ok) {
           const bodyText = await res.text().catch(() => "");
           throw new RdapperError("http_error", `RDAP ${res.status}: ${bodyText.slice(0, 500)}`);

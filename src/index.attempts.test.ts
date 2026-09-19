@@ -40,6 +40,47 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("throttle and empty-response guards", () => {
+  const ianaThen = (text: string) => async (server: string) => ({
+    serverQueried: server,
+    text: server === "whois.iana.org" ? "whois: whois.verisign-grs.com\n" : text,
+  });
+
+  it("fails with rate_limited when the registry throttles", async () => {
+    vi.mocked(whoisQuery).mockImplementation(ianaThen("WHOIS LIMIT EXCEEDED"));
+    const res = await lookup("example.com", { whoisOnly: true });
+    expect(res.ok).toBe(false);
+    expect(res.errorCode).toBe("rate_limited");
+    expect(res.errorPhase).toBe("whois");
+    expect(res.errorServer).toBe("whois.verisign-grs.com");
+  });
+
+  it("fails with unparseable when a long reply has no fields and no availability phrase", async () => {
+    vi.mocked(whoisQuery).mockImplementation(ianaThen(`${"lorem ipsum ".repeat(300)}\n`));
+    const res = await lookup("example.com", { whoisOnly: true });
+    expect(res.ok).toBe(false);
+    expect(res.errorCode).toBe("unparseable");
+  });
+
+  it("still reports availability for a genuine not-found reply", async () => {
+    vi.mocked(whoisQuery).mockImplementation(ianaThen("No match for EXAMPLE.COM"));
+    const res = await lookup("example.com", { whoisOnly: true });
+    expect(res.ok, res.error).toBe(true);
+    expect(res.record?.isRegistered).toBe(false);
+  });
+
+  it("classifies RDAP 429 as rate_limited and falls through to WHOIS", async () => {
+    const customFetch: FetchLike = vi.fn(
+      async () => new Response("slow down", { status: 429, headers: { "retry-after": "30" } }),
+    );
+    vi.mocked(whoisQuery).mockImplementation(ianaThen(whoisText));
+    const res = await lookup("example.com", { customBootstrapData: bootstrap, customFetch });
+    expect(res.ok, res.error).toBe(true);
+    expect(res.attempts[0]).toMatchObject({ errorCode: "rate_limited" });
+    expect(res.attempts[0]?.error).toContain("Retry-After: 30");
+  });
+});
+
 describe("attempts trace", () => {
   it("records a failed RDAP base followed by a WHOIS success, in order", async () => {
     const customFetch: FetchLike = vi.fn(async () => new Response("nope", { status: 503 }));
