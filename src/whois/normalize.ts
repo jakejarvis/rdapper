@@ -1,4 +1,4 @@
-import { toISO } from "../lib/dates";
+import { toISOFromTokens } from "../lib/dates";
 import { isPrivacyName } from "../lib/privacy";
 import { parseKeyValueLines, uniq } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
@@ -31,6 +31,7 @@ const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
   /\bno se encuentra registrado\b/i, // Spanish: "not found registered"
   /\bnicht gefunden\b/i, // German: "not found"
   /\bpending release\b/i, // often signals not registered/being deleted
+  /\brelease process:\s*waiting\b/i, // .br: expired, awaiting release
 ];
 
 /**
@@ -55,22 +56,26 @@ export function normalizeWhois(
   const map = parseKeyValueLines(whoisText);
 
   // Date extraction across common synonyms
-  const creationDate = anyValue(map, [
-    "creation date",
-    "created on",
-    "created",
-    "registered on",
-    "registered",
-    "registration date",
-    "domain registration date",
-    "domain create date",
-    "domain name commencement date",
-    "registration time", // .cn
-    "domain record activated", // .edu
-    "domain registered",
-    "registered date", // .co.jp
-    "assigned", // .il
-  ]);
+  // .gg/.je list dates as sentences under "Relevant dates:", e.g. "Registered on 28th December 2018 at 05:54:43.861"
+  const relevantDate = (label: RegExp) =>
+    map["relevant dates"]?.find((l) => label.test(l))?.replace(label, "");
+  const creationDate =
+    anyValue(map, [
+      "creation date",
+      "created on",
+      "created",
+      "registered on",
+      "registered",
+      "registration date",
+      "domain registration date",
+      "domain create date",
+      "domain name commencement date",
+      "registration time", // .cn
+      "domain record activated", // .edu
+      "domain registered",
+      "registered date", // .co.jp
+      "assigned", // .il
+    ]) ?? relevantDate(/^registered on\s+/i);
   const updatedDate = anyValue(map, [
     "updated date",
     "updated",
@@ -128,6 +133,11 @@ export function normalizeWhois(
     ]);
     const abuseEmail = anyValue(map, ["registrar abuse contact email", "abuse contact email"]);
     const abusePhone = anyValue(map, ["registrar abuse contact phone", "abuse contact phone"]);
+    // .gg/.je: "epag (http://www.epag.de)"
+    const inlineUrl = name?.match(/^(.*?)\s*\((https?:\/\/[^)\s]+)\)$/);
+    if (inlineUrl?.[1] && !url) {
+      return { name: inlineUrl[1], url: inlineUrl[2] };
+    }
     if (!name && !ianaId && !url && !abuseEmail && !abusePhone) return undefined;
     return {
       name: name || undefined,
@@ -155,6 +165,9 @@ export function normalizeWhois(
         })
         .filter((s): s is { status: string; raw: string } => s !== null)
     : undefined;
+
+  // Some registries (.ua) publish expiry only as a status, e.g. "OK-UNTIL 20261004161638"
+  const okUntil = statuses?.find((s) => /^ok-until$/i.test(s.status))?.raw;
 
   // Nameservers: also appear as "nserver" on some ccTLDs (.de, .ru) and as "name server"
   const nsLines: string[] = [
@@ -228,9 +241,9 @@ export function normalizeWhois(
     registrar,
     reseller: anyValue(map, ["reseller"]) || undefined,
     statuses,
-    creationDate: toISO(creationDate || undefined),
-    updatedDate: toISO(updatedDate || undefined),
-    expirationDate: toISO(expirationDate || undefined),
+    creationDate: toISOFromTokens(creationDate),
+    updatedDate: toISOFromTokens(updatedDate),
+    expirationDate: toISOFromTokens(expirationDate) ?? toISOFromTokens(okUntil),
     deletionDate: undefined,
     transferLock,
     dnssec,

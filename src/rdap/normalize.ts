@@ -98,6 +98,13 @@ export function normalizeRdap(
     asDateLike(byAction("deletion")?.eventDate) ?? asDateLike(doc.deletionDate),
   );
 
+  // Registries that keep answering for released/available names signal it via status
+  const isRegistered = !statuses?.some((s) =>
+    /^(available|free|released|pending release|release process[:\s-]*waiting)$/i.test(
+      s.status.trim(),
+    ),
+  );
+
   // Derive a simple transfer lock flag from statuses
   const transferLock = !!statuses?.some((s: { status: string }) =>
     /transfer[-\s]*prohibited/i.test(s.status),
@@ -109,7 +116,7 @@ export function normalizeRdap(
   const record: DomainRecord = {
     domain: unicodeName || ldhName || inputDomain,
     tld,
-    isRegistered: true,
+    isRegistered,
     isIDN: /(^|\.)xn--/i.test(ldhName || inputDomain),
     unicodeName: unicodeName || undefined,
     punycodeName: ldhName || undefined,

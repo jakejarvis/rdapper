@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { toISO } from "./dates";
+import { toISO, toISOFromTokens } from "./dates";
 
 test("toISO parses ISO and common whois formats", () => {
   const iso = toISO("2023-01-02T03:04:05Z");
@@ -41,4 +41,19 @@ test("toISO parses DD-MM-YYYY format (used by .il and .hk)", () => {
   // Ensure DD-MMM-YYYY (with month name) still works
   const dmmmy = toISO("02-Jan-2023");
   expect(dmmmy).toBe("2023-01-02T00:00:00Z");
+});
+
+test("toISO parses compact YYYYMMDDHHMMSS", () => {
+  expect(toISO("20261004161638")).toBe("2026-10-04T16:16:38Z");
+});
+
+test("toISOFromTokens extracts a timestamp from noisy strings", () => {
+  expect(toISOFromTokens("0-UANIC 20111004161638")).toBe("2011-10-04T16:16:38Z");
+  expect(toISOFromTokens("UARR149-UANIC 20251004050127")).toBe("2025-10-04T05:01:27Z");
+  expect(toISOFromTokens("0-UANIC")).toBeUndefined();
+});
+
+test("toISO parses compact YYYYMMDD, including .br 'created' values with a ticket suffix", () => {
+  expect(toISO("20260319")).toBe("2026-03-19T00:00:00Z");
+  expect(toISOFromTokens("20260319 #31066859")).toBe("2026-03-19T00:00:00Z");
 });

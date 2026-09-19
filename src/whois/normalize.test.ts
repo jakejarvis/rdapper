@@ -207,3 +207,76 @@ test("isAvailableByWhois correctly identifies availability patterns", () => {
   const rec = normalizeWhois("example.com", "com", text, "whois.example.com");
   expect(rec.isRegistered).toBe(false);
 });
+
+test("WHOIS .gov.ua extracts dates from noisy values and OK-UNTIL", () => {
+  const text = `
+domain: agrex.gov.ua
+status: OK-UNTIL 20261004161638
+created: 0-UANIC 20111004161638
+modified: UARR149-UANIC 20251004050127
+`;
+  const rec = normalizeWhois("agrex.gov.ua", "gov.ua", text, "whois.gov.ua");
+  expect(rec.creationDate).toBe("2011-10-04T16:16:38Z");
+  expect(rec.updatedDate).toBe("2025-10-04T05:01:27Z");
+  expect(rec.expirationDate).toBe("2026-10-04T16:16:38Z");
+});
+
+test("WHOIS .br 'release process: waiting' is not registered", () => {
+  const text = `
+domain:      iba.com.br
+release process:  waiting
+`;
+  expect(isAvailableByWhois(text)).toBe(true);
+  expect(normalizeWhois("iba.com.br", "com.br", text, "whois.registro.br").isRegistered).toBe(
+    false,
+  );
+});
+
+test("WHOIS .br published domain is registered with compact dates", () => {
+  const text = `
+domain:      iba.com.br
+nserver:     ns11.cloudns.net
+created:     20260319 #31066859
+changed:     20260414
+expires:     20270319
+status:      published
+`;
+  const rec = normalizeWhois("iba.com.br", "com.br", text, "whois.registro.br");
+  expect(rec.isRegistered).toBe(true);
+  expect(rec.creationDate).toBe("2026-03-19T00:00:00Z");
+  expect(rec.updatedDate).toBe("2026-04-14T00:00:00Z");
+  expect(rec.expirationDate).toBe("2027-03-19T00:00:00Z");
+});
+
+test("WHOIS .gg header-style blocks with colons in values", () => {
+  const text = `
+Domain:
+     t3.gg
+
+Domain Status:
+     Active
+
+Registrant:
+     T3 Tools Inc
+
+Registrar:
+     epag (http://www.epag.de)
+
+Relevant dates:
+     Registered on 28th December 2018 at 05:54:43.861
+     Registry fee due on 28th December each year
+
+Registration status:
+     Registered until cancelled
+
+Name servers:
+     ns1.vercel-dns.com
+     ns2.vercel-dns.com
+`;
+  const rec = normalizeWhois("t3.gg", "gg", text, "whois.gg");
+  expect(rec.isRegistered).toBe(true);
+  expect(rec.creationDate).toBe("2018-12-28T05:54:43Z");
+  expect(rec.expirationDate).toBeUndefined();
+  expect(rec.registrar).toEqual({ name: "epag", url: "http://www.epag.de" });
+  expect(rec.nameservers?.map((n) => n.host)).toEqual(["ns1.vercel-dns.com", "ns2.vercel-dns.com"]);
+});

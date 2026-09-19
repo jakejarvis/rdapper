@@ -18,6 +18,10 @@ export function toISO(dateLike: string | number | Date | undefined | null): stri
     /^(\d{2})-(\d{2})-(\d{4})$/,
     // Jan 02 2023
     /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/,
+    // 20261004161638 (compact YYYYMMDDHHMMSS, used by .ua)
+    /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/,
+    // 20260319 (compact YYYYMMDD, used by .br)
+    /^(\d{4})(\d{2})(\d{2})$/,
   ];
   for (const re of tryFormats) {
     const m = raw.match(re);
@@ -25,11 +29,65 @@ export function toISO(dateLike: string | number | Date | undefined | null): stri
     const d = parseDateWithRegex(m, re);
     if (d) return toIsoFromDate(d);
   }
+  // 28th December 2018 [at 05:54:43[.861]] (used by .gg/.je)
+  const ordinal = raw.match(
+    /^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})(?:\s+at\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/,
+  );
+  if (ordinal) {
+    const [, dd, mon, yyyy, hh, mm, ss] = ordinal;
+    const monthIdx = MONTHS[mon?.toLowerCase() ?? ""];
+    if (monthIdx !== undefined) {
+      return toIsoFromDate(
+        new Date(
+          Date.UTC(
+            Number(yyyy),
+            monthIdx,
+            Number(dd),
+            Number(hh ?? 0),
+            Number(mm ?? 0),
+            Number(ss ?? 0),
+          ),
+        ),
+      );
+    }
+  }
   // Fallback to native Date parsing (handles ISO and RFC2822 with TZ)
   const native = new Date(raw);
   if (!Number.isNaN(native.getTime())) return toIsoFromDate(native);
   return undefined;
 }
+
+/**
+ * Like toISO, but for values with extra noise around the timestamp
+ * (e.g. "0-UANIC 20111004161638", "OK-UNTIL 20261004161638"): if the whole string doesn't parse,
+ * try each whitespace-separated token that looks like a date.
+ */
+export function toISOFromTokens(value: string | undefined | null): string | undefined {
+  if (!value) return undefined;
+  const whole = toISO(value);
+  if (whole) return whole;
+  for (const token of value.trim().split(/\s+/)) {
+    if (!/^\d[\d\-/:.TZ+]{5,}$/.test(token)) continue;
+    const iso = toISO(token);
+    if (iso) return iso;
+  }
+  return undefined;
+}
+
+const MONTHS: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
 
 function toIsoFromDate(d: Date): string | undefined {
   try {
@@ -68,7 +126,7 @@ function parseDateWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined 
   };
   try {
     // If the matched string contains time components, parse as Y-M-D H:M:S
-    if (m[0].includes(":")) {
+    if (m[0].includes(":") || /^\d{14}$/.test(m[0])) {
       const [_, y, mo, d, hh, mm, ss, offH, offM] = m;
       if (!y || !mo || !d || !hh || !mm || !ss) return undefined;
       // Base time as UTC
@@ -83,6 +141,11 @@ function parseDateWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined 
         dt -= offsetMs;
       }
       return new Date(dt);
+    }
+    // Compact YYYYMMDD
+    if (/^\d{8}$/.test(m[0])) {
+      const [_, y, mo, d] = m;
+      return new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
     }
     // If the matched string contains hyphens, check if numeric (DD-MM-YYYY) or alpha (DD-MMM-YYYY)
     if (m[0].includes("-")) {

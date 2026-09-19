@@ -112,3 +112,26 @@ test("normalizeRdap detects transfer lock with camelCase status", () => {
   const rec = normalizeRdap("example.com", "com", rdap, []);
   expect(rec.transferLock).toBe(true);
 });
+
+test("normalizeRdap treats release-pending statuses as not registered", () => {
+  const rec = normalizeRdap(
+    "iba.com.br",
+    "com.br",
+    {
+      ldhName: "iba.com.br",
+      status: ["pending release"],
+    },
+    [],
+  );
+  expect(rec.isRegistered).toBe(false);
+  const active = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      status: ["active"],
+    },
+    [],
+  );
+  expect(active.isRegistered).toBe(true);
+});

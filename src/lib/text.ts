@@ -7,6 +7,8 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
   const map = new Map<string, string[]>();
   const lines = text.split(/\r?\n/);
   let lastKey: string | undefined;
+  // True while inside a header-style block ("Key:" alone on its line, values indented below)
+  let inHeaderBlock = false;
   for (const rawLine of lines) {
     const line = rawLine.replace(/\s+$/, "");
     if (!line.trim()) continue;
@@ -19,6 +21,18 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
       if (value) list.push(value);
       map.set(key, list);
       lastKey = key;
+      inHeaderBlock = false;
+      continue;
+    }
+    // Header-style block (.gg/.je): indented values may contain colons (URLs, times) that are
+    // not key separators, e.g. "     Registered on 28th December 2018 at 05:54:43.861"
+    if (inHeaderBlock && lastKey && /^\s+/.test(line) && !/:(\s|$)/.test(line)) {
+      const value = line.trim();
+      if (value) {
+        const list = map.get(lastKey) ?? [];
+        list.push(value);
+        map.set(lastKey, list);
+      }
       continue;
     }
     // Colon form: Key: value
@@ -34,6 +48,7 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
       if (value) list.push(value);
       map.set(key, list);
       lastKey = key;
+      inHeaderBlock = !value;
       continue;
     }
     // Continuation line: starts with indentation after a key appeared
