@@ -1,4 +1,6 @@
-// Country name <-> ISO 3166-1 alpha-2 resolution, backed by the runtime's ICU data.
+// Country name <-> ISO 3166-1 alpha-2 resolution, backed by a static table (see
+// scripts/generate-countries.mjs) so results don't vary with the runtime's ICU version.
+import { COUNTRY_NAMES } from "./countries-data";
 
 const ALIASES: Record<string, string> = {
   usa: "US",
@@ -32,6 +34,8 @@ const ALIASES: Record<string, string> = {
   holland: "NL",
   uae: "AE",
   burma: "MM",
+  myanmar: "MM",
+  "myanmar burma": "MM",
   "ivory coast": "CI",
   "cote d'ivoire": "CI",
   laos: "LA",
@@ -51,45 +55,24 @@ const normalize = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-let displayNames: Intl.DisplayNames | undefined;
 let nameToCode: Map<string, string> | undefined;
-
-function getDisplayNames(): Intl.DisplayNames | undefined {
-  if (displayNames) return displayNames;
-  try {
-    displayNames = new Intl.DisplayNames(["en"], { type: "region" });
-  } catch {
-    // Runtime without Intl.DisplayNames support
-  }
-  return displayNames;
-}
 
 /** English country name for an ISO 3166-1 alpha-2 code, or undefined if unknown. */
 export function countryNameFromCode(code: string): string | undefined {
-  const c = code.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(c)) return undefined;
-  try {
-    const name = getDisplayNames()?.of(c);
-    return name && name !== c && name !== "Unknown Region" ? name : undefined;
-  } catch {
-    return undefined;
-  }
+  return COUNTRY_NAMES[code.trim().toUpperCase()];
 }
 
 /** ISO 3166-1 alpha-2 code for a country name (or the code itself), or undefined if unknown. */
 export function countryCodeFromName(value: string): string | undefined {
   const v = value.trim();
   if (!v) return undefined;
-  if (/^[A-Za-z]{2}$/.test(v)) return countryNameFromCode(v) ? v.toUpperCase() : undefined;
+  if (/^[A-Za-z]{2}$/.test(v)) {
+    return countryNameFromCode(v) ? v.toUpperCase() : ALIASES[v.toLowerCase()];
+  }
   if (!nameToCode) {
-    nameToCode = new Map();
-    for (let a = 65; a <= 90; a++) {
-      for (let b = 65; b <= 90; b++) {
-        const code = String.fromCharCode(a, b);
-        const name = countryNameFromCode(code);
-        if (name) nameToCode.set(normalize(name), code);
-      }
-    }
+    nameToCode = new Map(
+      Object.entries(COUNTRY_NAMES).map(([code, name]) => [normalize(name), code]),
+    );
   }
   const key = normalize(v);
   return nameToCode.get(key) ?? ALIASES[key];

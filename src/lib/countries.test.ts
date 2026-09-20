@@ -19,3 +19,12 @@ test("resolveCountry fills whichever side is missing", () => {
     countryCode: undefined,
   });
 });
+
+test("static table: pinned names, XK kept, retired/reserved codes excluded, UK is GB", () => {
+  expect(countryNameFromCode("XK")).toBe("Kosovo");
+  expect(countryNameFromCode("SU")).toBeUndefined();
+  expect(countryNameFromCode("UK")).toBeUndefined();
+  expect(countryCodeFromName("UK")).toBe("GB");
+  expect(countryCodeFromName("Myanmar")).toBe("MM");
+  expect(resolveCountry("UK", undefined)).toEqual({ country: "United Kingdom", countryCode: "GB" });
+});
