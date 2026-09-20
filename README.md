@@ -62,6 +62,10 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
   - Returns the registrable domain string, or `null` for IPs/invalid input; [options](https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts) are forwarded to `tldts` (e.g., `allowPrivateDomains`).
 - `isRegistered(domain, options?) => Promise<boolean>`
 - `isAvailable(domain, options?) => Promise<boolean>`
+- `finalizeContact(contact, redactedHint?) => Contact`
+  - Cleans a contact: drops placeholder values (recording them in `redactedFields`), sets `privacyService`, resolves `country`/`countryCode`, and sets `redacted`. Safe to re-run on an already-cleaned contact, e.g. to upgrade contacts stored by an older version.
+- `isPrivacyContact(contact) => boolean`
+  - True when the contact's name/organization is a privacy service or was redacted.
 
 ### CLI
 

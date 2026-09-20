@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { finalizeContact, redactionFields } from "./contacts";
-import { isPlaceholderValue } from "./privacy";
+import { isPlaceholderValue, isPrivacyName } from "./privacy";
 import * as api from "../index";
 
 test("finalizeContact drops placeholder name/organization and records redactedFields", () => {
@@ -138,4 +138,33 @@ test("finalizeContact is idempotent", () => {
 test("finalizeContact and isPrivacyContact are exported", () => {
   expect(api.finalizeContact).toBe(finalizeContact);
   expect(api.isPrivacyContact({ type: "registrant", privacyService: true })).toBe(true);
+});
+
+test("bare 'not available' phrases are whole-value only", () => {
+  expect(isPlaceholderValue("Address not available in this region")).toBe(false);
+  expect(isPlaceholderValue("Not Available")).toBe(true);
+  expect(isPrivacyName("Not Available")).toBe(false);
+  expect(isPrivacyName("No Data Corp")).toBe(false);
+});
+
+test("redactionFields handles country code and multi-field names", () => {
+  expect(redactionFields("Registrant Country Code")).toEqual(["country"]);
+  expect(redactionFields("Registrant Street, City, Country")).toEqual([
+    "street",
+    "city",
+    "country",
+  ]);
+});
+
+test("a dropped country keeps a separate countryCode, and survives re-finalizing", () => {
+  const c = finalizeContact({ type: "registrant", country: "N/A", countryCode: "US" });
+  expect(c.countryCode).toBe("US");
+  expect(c.country).toBe("United States");
+  expect(c.redactedFields).toEqual(["country"]);
+  expect(c.redacted).toBe(true);
+
+  const again = finalizeContact(structuredClone(c));
+  expect(again.redactedFields).toEqual(["country"]);
+  expect(again.redacted).toBe(true);
+  expect(again).toEqual(c);
 });
