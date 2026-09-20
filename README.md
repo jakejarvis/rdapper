@@ -571,6 +571,7 @@ interface DomainRecord {
       | "state"
       | "postalCode"
       | "poBox"
+      | "country"
     >; // fields that were redacted (and are therefore absent)
     privacyService?: boolean; // name/organization is a privacy/proxy service (text kept), not a redaction notice
   }>;

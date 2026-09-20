@@ -84,7 +84,9 @@ const PLACEHOLDER_VALUE_PATTERNS = [
   /\bcontact (?:the )?registrar\b/i,
   /\bnot applicable\b/i,
   /select request email form/i,
-  /^(?:-+|n\/a|na|none|null|undefined|unknown)$/i,
+  /^(?:-+|\.+|n\/a|na|none|null|undefined|unknown)$/i,
+  // Whole-value only: as substrings these could match real text (and would flag names as privacy)
+  /^(?:not available|not published|not public|no data)$/i,
 ];
 
 /** True when a contact field value (email, phone, ...) is a placeholder rather than real data. */

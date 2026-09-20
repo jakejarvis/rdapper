@@ -1,5 +1,5 @@
 import type { Contact, ContactField } from "../types";
-import { resolveCountry } from "./countries";
+import { countryCodeFromName, resolveCountry } from "./countries";
 import { isPlaceholderValue, isPrivacyName } from "./privacy";
 
 function cleanValue(
@@ -32,6 +32,9 @@ const CLEANED_FIELDS = [
   "poBox",
 ] as const satisfies readonly ContactField[];
 
+// Order in which `redactedFields` is reported: the cleaned fields, then `country` (resolved separately).
+const REPORTED_FIELDS: readonly ContactField[] = [...CLEANED_FIELDS, "country"];
+
 // Secondary fields: cleaned the same way but not reported (no `ContactField` for them).
 const CLEANED_EXTRA = ["organizationUnits", "title", "role"] as const;
 
@@ -42,7 +45,7 @@ const VCARD_PROPERTY_FIELDS: Record<string, ContactField[]> = {
   org: ["organization"],
   email: ["email"],
   tel: ["phone"],
-  adr: ["poBox", "street", "city", "state", "postalCode"],
+  adr: ["poBox", "street", "city", "state", "postalCode", "country"],
 };
 // Position within an `adr` value (`[3][N]`) to the field it holds.
 const ADR_INDEX_FIELDS: Record<number, ContactField> = {
@@ -51,6 +54,7 @@ const ADR_INDEX_FIELDS: Record<number, ContactField> = {
   3: "city",
   4: "state",
   5: "postalCode",
+  6: "country",
 };
 
 function fieldsFromName(text: string): ContactField[] {
@@ -66,6 +70,7 @@ function fieldsFromName(text: string): ContactField[] {
   if (/state|province|region/.test(t)) out.push("state");
   if (/postal|post code|postcode|zip/.test(t)) out.push("postalCode");
   if (/\bpo box\b|\bpobox\b/.test(t)) out.push("poBox");
+  if (/country/.test(t)) out.push("country");
   return out;
 }
 
@@ -101,8 +106,12 @@ export function finalizeContact(
   contact: Contact,
   redactedHint: boolean | ContactField[] = false,
 ): Contact {
-  const redactedFields = new Set<ContactField>();
-  let redacted = redactedHint === true || (Array.isArray(redactedHint) && redactedHint.length > 0);
+  // Seeded from the contact itself so re-finalizing an already-cleaned contact keeps its signals.
+  const redactedFields = new Set<ContactField>(contact.redactedFields);
+  let redacted =
+    !!contact.redacted ||
+    redactedHint === true ||
+    (Array.isArray(redactedHint) && redactedHint.length > 0);
   if (Array.isArray(redactedHint)) for (const f of redactedHint) redactedFields.add(f);
 
   const record = contact as unknown as Record<string, string | string[] | undefined>;
@@ -123,12 +132,22 @@ export function finalizeContact(
     redacted = true;
   }
 
+  // A placeholder country ("N/A", "REDACTED FOR PRIVACY") is dropped, but only when it isn't a
+  // real country: two-letter values like "NA" (Namibia) must resolve first.
+  if (
+    contact.country &&
+    isPlaceholderValue(contact.country) &&
+    !countryCodeFromName(contact.country)
+  ) {
+    contact.country = undefined;
+    redactedFields.add("country");
+  }
   const { country, countryCode } = resolveCountry(contact.country, contact.countryCode);
   contact.country = country;
   contact.countryCode = countryCode;
 
   if (redactedFields.size) {
-    contact.redactedFields = CLEANED_FIELDS.filter((f) => redactedFields.has(f));
+    contact.redactedFields = REPORTED_FIELDS.filter((f) => redactedFields.has(f));
     redacted = true;
   }
   if (redacted) contact.redacted = true;

@@ -109,7 +109,8 @@ export type ContactField =
   | "city"
   | "state"
   | "postalCode"
-  | "poBox";
+  | "poBox"
+  | "country";
 
 /**
  * An RFC 9537 redaction entry describing a field the registry withheld.

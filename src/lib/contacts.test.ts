@@ -57,6 +57,7 @@ test("redactionFields maps RFC 9537 names to contact fields", () => {
   expect(redactionFields("Tech Phone Ext")).toEqual(["phone"]);
   expect(redactionFields("Registrant Street")).toEqual(["street"]);
   expect(redactionFields("Registrant Postal Code")).toEqual(["postalCode"]);
+  expect(redactionFields("Registrant Country")).toEqual(["country"]);
 });
 
 test("redactionFields falls back to the vCard property in prePath", () => {
@@ -67,6 +68,7 @@ test("redactionFields falls back to the vCard property in prePath", () => {
   expect(redactionFields("x", path("org"))).toEqual(["organization"]);
   expect(redactionFields("x", path("tel"))).toEqual(["phone"]);
   expect(redactionFields("x", path("adr", "[3][3]"))).toEqual(["city"]);
+  expect(redactionFields("x", path("adr", "[3][6]"))).toEqual(["country"]);
   expect(redactionFields("x", path("adr"))).toContain("street");
   expect(redactionFields("x", "$.entities[0]")).toEqual([]);
   // The name wins when it identifies fields
@@ -97,4 +99,43 @@ test("package entry exports the contact predicates", () => {
     country: "Germany",
     countryCode: "DE",
   });
+});
+
+test("finalizeContact drops placeholder countries but keeps real ones", () => {
+  const na = finalizeContact({ type: "registrant", country: "N/A" });
+  expect(na.country).toBeUndefined();
+  expect(na.redactedFields).toEqual(["country"]);
+  expect(na.redacted).toBe(true);
+
+  const rp = finalizeContact({ type: "registrant", country: "REDACTED FOR PRIVACY" });
+  expect(rp.country).toBeUndefined();
+  expect(rp.redactedFields).toEqual(["country"]);
+
+  const namibia = finalizeContact({ type: "registrant", country: "NA" });
+  expect(namibia.countryCode).toBe("NA");
+  expect(namibia.country).toBe("Namibia");
+  expect(namibia.redacted).toBeUndefined();
+});
+
+test("finalizeContact treats bare 'not available' style values as placeholders", () => {
+  for (const v of ["Not Available", "Not Published", "Not Public", "No Data", ".."]) {
+    expect(isPlaceholderValue(v)).toBe(true);
+  }
+  expect(isPlaceholderValue("No Data Corp")).toBe(false);
+});
+
+test("finalizeContact is idempotent", () => {
+  const once = finalizeContact({
+    type: "registrant",
+    name: "Domains By Proxy, LLC",
+    email: "REDACTED FOR PRIVACY",
+    country: "N/A",
+  });
+  const twice = finalizeContact(structuredClone(once));
+  expect(twice).toEqual(once);
+});
+
+test("finalizeContact and isPrivacyContact are exported", () => {
+  expect(api.finalizeContact).toBe(finalizeContact);
+  expect(api.isPrivacyContact({ type: "registrant", privacyService: true })).toBe(true);
 });
