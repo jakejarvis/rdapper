@@ -306,3 +306,21 @@ test("normalizeRdap flags contacts with placeholder values or matching redaction
   expect(tech?.redacted).toBe(true);
   expect(admin?.redacted).toBeUndefined();
 });
+
+test("normalizeRdap resolves registrar countryCode from the country name", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrar"],
+          vcardArray: ["vcard", [["adr", {}, "text", ["", "", "", "", "", "", "Canada"]]]],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.registrar).toMatchObject({ country: "Canada", countryCode: "CA" });
+});

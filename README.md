@@ -544,10 +544,15 @@ interface DomainRecord {
     type:
       "registrant" | "admin" | "tech" | "billing" | "abuse" | "registrar" | "reseller" | "unknown";
     name?: string;
+    kind?: "individual" | "org" | "group" | "location"; // vCard KIND (RDAP only, when provided)
     organization?: string;
+    organizationUnits?: string[]; // vCard ORG levels below the organization (RDAP only)
+    title?: string; // RDAP only
+    role?: string; // RDAP only
     email?: string | string[];
     phone?: string | string[];
     fax?: string | string[];
+    poBox?: string; // RDAP only
     street?: string[];
     city?: string;
     state?: string;

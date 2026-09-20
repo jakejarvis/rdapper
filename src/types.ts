@@ -23,13 +23,17 @@ export interface RegistrarInfo {
   email?: string;
   /** Registrar contact phone number */
   phone?: string;
-  /** Registrar street address lines */
+  /** Street address lines (RDAP only) */
   street?: string[];
+  /** City or locality (RDAP only) */
   city?: string;
+  /** State, province, or region (RDAP only) */
   state?: string;
+  /** Postal or ZIP code (RDAP only) */
   postalCode?: string;
+  /** Country name (RDAP only) */
   country?: string;
-  /** ISO 3166-1 alpha-2 country code, when provided */
+  /** ISO 3166-1 alpha-2 country code, from the vCard `cc` parameter or resolved from `country` (RDAP only) */
   countryCode?: string;
 }
 
@@ -41,6 +45,7 @@ export interface RegistrarInfo {
  * varies by TLD, registrar, and privacy policies (GDPR, WHOIS privacy services).
  */
 export interface Contact {
+  /** Role this contact plays for the domain */
   type:
     | "registrant"
     | "admin"
@@ -50,19 +55,39 @@ export interface Contact {
     | "registrar"
     | "reseller"
     | "unknown";
+  /** Contact name as reported: usually a person, sometimes an organization */
   name?: string;
+  /** vCard KIND, when the registry provides it (RDAP only) */
+  kind?: "individual" | "org" | "group" | "location";
+  /** Organization name (the first vCard ORG level in RDAP) */
   organization?: string;
+  /** Organizational units below `organization` (vCard ORG levels 2+, RDAP only) */
+  organizationUnits?: string[];
+  /** Job title (vCard TITLE, RDAP only) */
+  title?: string;
+  /** Role within the organization (vCard ROLE, RDAP only) */
+  role?: string;
+  /** Email address; an array when the source lists several. Placeholder text is dropped. */
   email?: string | string[];
+  /** Voice phone number; an array when the source lists several. Placeholder text is dropped. */
   phone?: string | string[];
+  /** Fax number; an array when the source lists several */
   fax?: string | string[];
+  /** Post office box (RDAP only) */
+  poBox?: string;
+  /** Street address lines */
   street?: string[];
+  /** City or locality */
   city?: string;
+  /** State, province, or region */
   state?: string;
+  /** Postal or ZIP code */
   postalCode?: string;
+  /** Country name; filled from `countryCode` when only the code is given */
   country?: string;
-  /** ISO 3166-1 alpha-2 country code */
+  /** ISO 3166-1 alpha-2 country code; filled from `country` when it can be resolved */
   countryCode?: string;
-  /** True when some of this contact's data was redacted, withheld, or replaced by a placeholder */
+  /** True when any of this contact's data was redacted, withheld, or replaced by a placeholder */
   redacted?: boolean;
 }
 
@@ -111,7 +136,7 @@ export interface Nameserver {
  * @see {@link https://www.icann.org/resources/pages/epp-status-codes-2014-06-16-en ICANN EPP Status Codes}
  */
 export interface StatusEvent {
-  /** Normalized status code (e.g., "clientTransferProhibited") */
+  /** Status code (e.g., "clientTransferProhibited") */
   status: string;
   /** Human-readable description of the status, if available */
   description?: string;
@@ -145,43 +170,49 @@ export interface StatusEvent {
  * ```
  */
 export interface DomainRecord {
-  /** Normalized domain name */
+  /** Domain name (Unicode form when available, otherwise as queried) */
   domain: string;
-  /** Terminal TLD */
+  /** Top-level domain the lookup was routed by (e.g., "com") */
   tld: string;
   /** Whether the domain is registered */
   isRegistered: boolean;
   /** Whether the domain is internationalized (IDN) */
   isIDN?: boolean;
-  /** Unicode name */
+  /** Unicode (IDN) form of the name, when provided */
   unicodeName?: string;
-  /** Punycode name */
+  /** Punycode (ASCII) form of the name, when provided */
   punycodeName?: string;
-  /** Registry operator */
+  /** Registry operator name (rarely available) */
   registry?: string;
-  /** Registrar */
+  /** Registrar responsible for the registration */
   registrar?: RegistrarInfo;
-  /** Reseller (if applicable) */
+  /** Reseller name, if the source provides one */
   reseller?: string;
-  /** EPP status codes */
+  /** EPP status codes and registry-specific statuses */
   statuses?: StatusEvent[];
-  /** Creation date in ISO 8601 */
+  /** When the domain was registered (ISO 8601) */
   creationDate?: string;
-  /** Updated date in ISO 8601 */
+  /** When the record was last changed (ISO 8601) */
   updatedDate?: string;
-  /** Expiration date in ISO 8601 */
+  /** When the registration expires (ISO 8601) */
   expirationDate?: string;
-  /** Deletion date in ISO 8601 */
+  /** When the domain was or will be deleted (ISO 8601), if reported (RDAP only) */
   deletionDate?: string;
-  /** Transfer lock */
+  /** Whether a transfer-prohibited status is set (client or server) */
   transferLock?: boolean;
   /** DNSSEC data (if available) */
   dnssec?: {
+    /** Whether the delegation is signed */
     enabled: boolean;
+    /** DS records published for the delegation */
     dsRecords?: Array<{
+      /** Key tag */
       keyTag?: number;
+      /** DNSSEC algorithm number */
       algorithm?: number;
+      /** Digest type number */
       digestType?: number;
+      /** Digest, as a hex string */
       digest?: string;
     }>;
   };
@@ -189,21 +220,21 @@ export interface DomainRecord {
   nameservers?: Nameserver[];
   /** Contacts (registrant, admin, tech, billing, abuse, etc.) */
   contacts?: Contact[];
-  /** Best guess as to whether registrant is redacted based on keywords */
+  /** Best guess that the registrant is hidden behind a privacy service or redacted, from name/organization phrases or RFC 9537 redactions */
   privacyEnabled?: boolean;
   /** RFC 9537 redaction metadata reported by RDAP, if any */
   redactions?: Redaction[];
-  /** Authoritative WHOIS queried (if any) */
+  /** WHOIS server that answered, or the RDAP `port43` pointer (if any) */
   whoisServer?: string;
   /** RDAP base URLs tried */
   rdapServers?: string[];
-  /** Raw RDAP JSON */
+  /** Raw RDAP JSON (only with `includeRaw`) */
   rawRdap?: unknown;
-  /** Raw WHOIS text (last authoritative) */
+  /** Raw WHOIS text from the last authoritative server (only with `includeRaw`) */
   rawWhois?: string;
-  /** Which source produced data */
+  /** Which source produced the data */
   source: LookupSource;
-  /** Warnings generated during lookup */
+  /** Non-fatal warnings from the lookup (currently WHOIS referral problems, e.g. a skipped unsafe host or a referral that returned no data) */
   warnings?: string[];
 }
 
@@ -419,6 +450,8 @@ export interface LookupResult {
 /**
  * Machine-readable reason a lookup (or one attempt within it) failed.
  *
+ * - `invalid_input`: the input does not look like a domain name
+ * - `invalid_tld`: the TLD is not valid
  * - `timeout`: any timeout, including the overall `deadlineMs`
  * - `aborted`: the caller's `AbortSignal` fired
  * - `connect_failed`: network-level failure (ECONNREFUSED, ECONNRESET, ENOTFOUND, ...)
@@ -428,7 +461,9 @@ export interface LookupResult {
  * - `rate_limited`: the server throttled the query (RDAP 429, or a WHOIS throttle notice)
  * - `blocked`: the WHOIS server refuses this client outright (retrying will not help)
  * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record
+ * - `no_data`: a WHOIS server accepted the connection but closed it without sending anything
  * - `unsupported_runtime`: WHOIS needs `node:net`, which this runtime lacks
+ * - `unknown`: any failure not covered above
  */
 export type LookupErrorCode =
   | "invalid_input"
@@ -448,12 +483,17 @@ export type LookupErrorCode =
 
 /** One network operation performed during a lookup. */
 export interface LookupAttempt {
+  /** Step of the lookup this attempt belongs to (IANA bootstrap fetch, RDAP query, RDAP link follow, IANA WHOIS discovery, WHOIS query) */
   phase: "rdap_bootstrap" | "rdap" | "rdap_link" | "iana" | "whois";
   /** RDAP base/link URL or WHOIS host */
   server: string;
+  /** Whether this attempt succeeded */
   ok: boolean;
+  /** How long the attempt took, in milliseconds */
   durationMs: number;
+  /** Machine-readable failure reason, present when ok is false */
   errorCode?: LookupErrorCode;
+  /** Error message, present when ok is false */
   error?: string;
   /** `rate_limited` RDAP failures only: the server's `Retry-After`, in milliseconds */
   retryAfterMs?: number;

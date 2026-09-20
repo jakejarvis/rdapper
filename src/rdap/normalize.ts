@@ -1,7 +1,9 @@
+import { resolveCountry } from "../lib/countries";
 import { finalizeContact } from "../lib/contacts";
 import { toISO } from "../lib/dates";
 import { isPrivacyName } from "../lib/privacy";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
+import { parseVcard } from "./vcard";
 import type { Contact, DomainRecord, Nameserver, Redaction, RegistrarInfo } from "../types";
 
 type RdapDoc = Record<string, unknown>;
@@ -204,8 +206,7 @@ function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
       city: v.locality,
       state: v.region,
       postalCode: v.postcode,
-      country: v.country,
-      countryCode: v.countryCode,
+      ...resolveCountry(v.country, v.countryCode),
     };
   }
   return undefined;
@@ -242,9 +243,14 @@ function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[]
       type: roleKey,
       name: v.fn,
       organization: v.org,
+      organizationUnits: v.orgUnits,
+      kind: v.kind,
+      title: v.title,
+      role: v.role,
       email: single(v.email),
       phone: single(v.tel),
       fax: single(v.fax),
+      poBox: v.poBox,
       street: v.street,
       city: v.locality,
       state: v.region,
@@ -262,73 +268,4 @@ function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[]
 function single(list: string[] | undefined): string | string[] | undefined {
   if (!list?.length) return undefined;
   return list.length === 1 ? list[0] : list;
-}
-
-interface ParsedVCard {
-  fn?: string;
-  org?: string;
-  email?: string[];
-  tel?: string[];
-  fax?: string[];
-  url?: string;
-  street?: string[];
-  locality?: string;
-  region?: string;
-  postcode?: string;
-  country?: string;
-  countryCode?: string;
-}
-
-// Parse a minimal subset of vCard 4.0 arrays as used in RDAP "vcardArray" fields
-function parseVcard(vcardArray: unknown): ParsedVCard {
-  // vcardArray is typically ["vcard", [["version",{} ,"text","4.0"], ["fn",{} ,"text","Example"], ...]]
-  if (!Array.isArray(vcardArray) || vcardArray[0] !== "vcard" || !Array.isArray(vcardArray[1]))
-    return {};
-  const entries = vcardArray[1] as Array<[string, Record<string, unknown>, string, unknown]>;
-  const out: ParsedVCard = {};
-  for (const e of entries) {
-    const key = e?.[0];
-    const value = e?.[3];
-    if (!key) continue;
-    switch (String(key).toLowerCase()) {
-      case "fn":
-        out.fn = asString(value);
-        break;
-      case "org":
-        out.org = Array.isArray(value) ? value.map((x) => String(x)).join(" ") : asString(value);
-        break;
-      case "email": {
-        const v = asString(value);
-        if (v) (out.email ??= []).push(v);
-        break;
-      }
-      case "tel": {
-        const v = asString(value);
-        if (!v) break;
-        // RFC 6350 TYPE parameter may be a string or array (e.g. "fax", ["work", "fax"])
-        const type = e?.[1]?.type;
-        const types = (Array.isArray(type) ? type : [type]).map((t) => String(t).toLowerCase());
-        (types.includes("fax") ? (out.fax ??= []) : (out.tel ??= [])).push(v);
-        break;
-      }
-      case "url":
-        out.url = asString(value);
-        break;
-      case "adr": {
-        // adr value is [postOfficeBox, extendedAddress, street, locality, region, postalCode, country]
-        if (Array.isArray(value)) {
-          out.street = value[2] ? String(value[2]).split(/\r?\n/).filter(Boolean) : undefined;
-          out.locality = asString(value[3]);
-          out.region = asString(value[4]);
-          out.postcode = asString(value[5]);
-          out.country = asString(value[6]);
-          // RFC 8605: ISO 3166-1 alpha-2 code lives in the "cc" parameter
-          const cc = asString(e?.[1]?.cc);
-          if (cc) out.countryCode = cc.toUpperCase();
-        }
-        break;
-      }
-    }
-  }
-  return out;
 }
