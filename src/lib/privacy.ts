@@ -59,3 +59,21 @@ export function isPrivacyName(value: string): boolean {
   WEAK_WORD_RE.lastIndex = 0;
   return new Set(v.match(CONTEXT_WORD_RE)).size >= 2;
 }
+
+// Boilerplate that registrars put in email/phone/etc. instead of real values
+const PLACEHOLDER_VALUE_PATTERNS = [
+  /\bredacted\b/i,
+  /\bwithheld\b/i,
+  /\bnot disclosed\b/i,
+  /please query the rdds/i,
+  /please query the rdap/i,
+  /query the whois/i,
+  /\bcontact (?:the )?registrar\b/i,
+  /^(?:-+|n\/a|na|none|null|undefined)$/i,
+];
+
+/** True when a contact field value (email, phone, ...) is a placeholder rather than real data. */
+export function isPlaceholderValue(value: string): boolean {
+  const v = value.trim();
+  return !v || PLACEHOLDER_VALUE_PATTERNS.some((re) => re.test(v));
+}

@@ -553,7 +553,8 @@ interface DomainRecord {
     state?: string;
     postalCode?: string;
     country?: string;
-    countryCode?: string;
+    countryCode?: string; // ISO 3166-1 alpha-2; country/countryCode are resolved from each other when possible
+    redacted?: boolean; // some contact data was redacted/withheld or replaced by a placeholder
   }>;
   privacyEnabled?: boolean; // registrant appears privacy-redacted based on name heuristics (privacy-service and redaction phrases) or RFC 9537 redactions
   redactions?: Array<{

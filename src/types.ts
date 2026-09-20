@@ -60,7 +60,10 @@ export interface Contact {
   state?: string;
   postalCode?: string;
   country?: string;
+  /** ISO 3166-1 alpha-2 country code */
   countryCode?: string;
+  /** True when some of this contact's data was redacted, withheld, or replaced by a placeholder */
+  redacted?: boolean;
 }
 
 /**

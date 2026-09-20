@@ -267,3 +267,42 @@ test("normalizeRdap maps registrar adr and cc", () => {
     countryCode: "CA",
   });
 });
+
+test("normalizeRdap flags contacts with placeholder values or matching redactions", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      redacted: [
+        {
+          name: { description: "Technical Email" },
+          prePath: "$.entities[?(@.roles[0]=='technical')].vcardArray[1][?(@[0]=='email')][3]",
+          method: "emptyValue",
+        },
+      ],
+      entities: [
+        {
+          roles: ["registrant"],
+          vcardArray: [
+            "vcard",
+            [
+              ["fn", {}, "text", "Jane Doe"],
+              ["email", {}, "text", "Please query the RDDS service of the Registrar of Record"],
+              ["adr", {}, "text", ["", "", "", "", "", "", "Germany"]],
+            ],
+          ],
+        },
+        { roles: ["technical"], vcardArray: ["vcard", [["fn", {}, "text", "Tech Person"]]] },
+        { roles: ["administrative"], vcardArray: ["vcard", [["fn", {}, "text", "Admin Person"]]] },
+      ],
+    },
+    [],
+  );
+  const [registrant, tech, admin] = rec.contacts ?? [];
+  expect(registrant?.email).toBeUndefined();
+  expect(registrant?.redacted).toBe(true);
+  expect(registrant?.countryCode).toBe("DE");
+  expect(tech?.redacted).toBe(true);
+  expect(admin?.redacted).toBeUndefined();
+});

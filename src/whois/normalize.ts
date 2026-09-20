@@ -1,4 +1,5 @@
 import { toISOFromTokens } from "../lib/dates";
+import { finalizeContact } from "../lib/contacts";
 import { isPrivacyName } from "../lib/privacy";
 import { parseKeyValueLines, uniq } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
@@ -358,21 +359,21 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
     const country = anyValue(map, countryKeys);
 
     if (name || org || email || phone || street?.length) {
-      contacts.push({
-        type: r.role,
-        name: name || undefined,
-        organization: org || undefined,
-        email: email || undefined,
-        phone: phone || undefined,
-        fax: fax || undefined,
-        street: street,
-        city: city || undefined,
-        state: state || undefined,
-        postalCode: postalCode || undefined,
-        country: country || undefined,
-        // Many registries print the ISO 3166-1 alpha-2 code directly
-        countryCode: country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : undefined,
-      });
+      contacts.push(
+        finalizeContact({
+          type: r.role,
+          name: name || undefined,
+          organization: org || undefined,
+          email: email || undefined,
+          phone: phone || undefined,
+          fax: fax || undefined,
+          street: street,
+          city: city || undefined,
+          state: state || undefined,
+          postalCode: postalCode || undefined,
+          country: country || undefined,
+        }),
+      );
     }
   }
   return contacts.length ? contacts : undefined;

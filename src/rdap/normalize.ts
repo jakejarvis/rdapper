@@ -1,3 +1,4 @@
+import { finalizeContact } from "../lib/contacts";
 import { toISO } from "../lib/dates";
 import { isPrivacyName } from "../lib/privacy";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
@@ -41,11 +42,11 @@ export function normalizeRdap(
         .filter((n) => !!n.host)
     : undefined;
 
-  // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
-  const contacts: Contact[] | undefined = extractContacts(doc.entities as unknown);
-
   // RFC 9537 redaction metadata
   const redactions = extractRedactions(doc.redacted);
+
+  // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
+  const contacts: Contact[] | undefined = extractContacts(doc.entities as unknown, redactions);
 
   // Derive privacy flag from registrant name/org keywords or RFC 9537 registrant redactions
   const registrant = contacts?.find((c) => c.type === "registrant");
@@ -53,7 +54,9 @@ export function normalizeRdap(
     !!(
       registrant &&
       ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
-    ) || !!redactions?.some((r) => /registrant/i.test(`${r.prePath ?? ""} ${r.name}`));
+    ) ||
+    !!registrant?.redacted ||
+    !!redactions?.some((r) => redactionTargetsRole(r, "registrant"));
 
   // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
   const statuses = Array.isArray(doc.status)
@@ -208,7 +211,13 @@ function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
   return undefined;
 }
 
-function extractContacts(entities: unknown): Contact[] | undefined {
+/** Does an RFC 9537 redaction refer to the entity with this RDAP role (e.g. "registrant")? */
+function redactionTargetsRole(r: Redaction, role: string): boolean {
+  const re = new RegExp(`\\b${role}\\b`, "i");
+  return re.test(r.prePath ?? "") || re.test(r.name);
+}
+
+function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[] | undefined {
   if (!Array.isArray(entities)) return undefined;
   const out: Contact[] = [];
   for (const ent of entities) {
@@ -229,7 +238,7 @@ function extractContacts(entities: unknown): Contact[] | undefined {
       reseller: "reseller",
     } as const;
     const roleKey = (map[type.toLowerCase()] ?? "unknown") as Contact["type"];
-    out.push({
+    const contact: Contact = {
       type: roleKey,
       name: v.fn,
       organization: v.org,
@@ -242,7 +251,9 @@ function extractContacts(entities: unknown): Contact[] | undefined {
       postalCode: v.postcode,
       country: v.country,
       countryCode: v.countryCode,
-    });
+    };
+    const hinted = !!redactions?.some((r) => redactionTargetsRole(r, type.toLowerCase()));
+    out.push(finalizeContact(contact, hinted));
   }
   return out.length ? out : undefined;
 }

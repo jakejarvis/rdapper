@@ -280,3 +280,24 @@ Name servers:
   expect(rec.registrar).toEqual({ name: "epag", url: "http://www.epag.de" });
   expect(rec.nameservers?.map((n) => n.host)).toEqual(["ns1.vercel-dns.com", "ns2.vercel-dns.com"]);
 });
+
+test("WHOIS resolves country code/name and flags placeholder contact values", () => {
+  const rec = normalizeWhois(
+    "example.com",
+    "com",
+    `Domain Name: EXAMPLE.COM
+Registrant Name: Jane Doe
+Registrant Email: Please query the RDDS service of the Registrar of Record identified in this output
+Registrant Country: DE
+Admin Name: John Roe
+Admin Country: Canada
+`,
+    "whois.example",
+  );
+  const registrant = rec.contacts?.find((c) => c.type === "registrant");
+  expect(registrant).toMatchObject({ country: "Germany", countryCode: "DE", redacted: true });
+  expect(registrant?.email).toBeUndefined();
+  const admin = rec.contacts?.find((c) => c.type === "admin");
+  expect(admin).toMatchObject({ country: "Canada", countryCode: "CA" });
+  expect(admin?.redacted).toBeUndefined();
+});
