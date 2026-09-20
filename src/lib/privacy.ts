@@ -1,20 +1,28 @@
 /**
- * Phrases that indicate privacy/redaction on their own. Matched as case-insensitive substrings.
+ * Redaction notices: text that stands in for a withheld value. Shared by `isPrivacyName` (as
+ * substrings) and `isPlaceholderValue` (as whole words), so the two can't drift apart.
  */
-export const PRIVACY_STRONG_KEYWORDS = [
+const REDACTION_PHRASES = [
   "redacted", // also covers "redacted for privacy", "redacted.forprivacy"
   "withheld",
   "not disclosed",
-  "privado", // Spanish
-  "datos privados", // Spanish
   "data protected",
   "gdpr masked",
-  "non-public data",
   "statutory masking",
-  "registration private",
-  "private registration",
+  "non-public data",
   "hidden upon user request",
   "not available from registry",
+];
+
+/**
+ * Privacy/proxy service names and other phrases that indicate privacy on their own. Unlike
+ * redaction notices these can be real registrant text worth showing, so they aren't placeholders.
+ */
+const PRIVACY_SERVICE_PHRASES = [
+  "privado", // Spanish
+  "datos privados", // Spanish
+  "registration private",
+  "private registration",
   "whois privacy",
   "whoisguard",
   "privacy protect",
@@ -25,6 +33,11 @@ export const PRIVACY_STRONG_KEYWORDS = [
   "proxy service",
   "for privacy",
 ];
+
+/**
+ * Phrases that indicate privacy/redaction on their own. Matched as case-insensitive substrings.
+ */
+export const PRIVACY_STRONG_KEYWORDS = [...REDACTION_PHRASES, ...PRIVACY_SERVICE_PHRASES];
 
 /**
  * Words too ambiguous to trust alone ("Private Equity LLC", "Protection One"). They only count
@@ -60,19 +73,16 @@ export function isPrivacyName(value: string): boolean {
   return new Set(v.match(CONTEXT_WORD_RE)).size >= 2;
 }
 
+const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // Boilerplate that registrars put in email/phone/etc. instead of real values
 const PLACEHOLDER_VALUE_PATTERNS = [
-  /\bredacted\b/i,
-  /\bwithheld\b/i,
-  /\bnot disclosed\b/i,
+  ...REDACTION_PHRASES.map((p) => new RegExp(`\\b${escapeRe(p)}\\b`, "i")),
   /please query the rdds/i,
   /please query the rdap/i,
   /query the whois/i,
   /\bcontact (?:the )?registrar\b/i,
-  /\bnot available from registry\b/i,
   /\bnot applicable\b/i,
-  /\bdata protected\b/i,
-  /\b(?:statutory|gdpr) mask(?:ing|ed)\b/i,
   /select request email form/i,
   /^(?:-+|n\/a|na|none|null|undefined|unknown)$/i,
 ];

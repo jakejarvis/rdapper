@@ -35,8 +35,25 @@ const CLEANED_FIELDS = [
 // Secondary fields: cleaned the same way but not reported (no `ContactField` for them).
 const CLEANED_EXTRA = ["organizationUnits", "title", "role"] as const;
 
-/** Map an RFC 9537 redaction name/path (e.g. "Registrant Email") to the contact fields it covers. */
-export function redactionFields(text: string): ContactField[] {
+// vCard property (from a redaction path like `[?(@[0]=='email')]`) to the contact fields it holds.
+const VCARD_PROPERTY_FIELDS: Record<string, ContactField[]> = {
+  fn: ["name"],
+  n: ["name"],
+  org: ["organization"],
+  email: ["email"],
+  tel: ["phone"],
+  adr: ["poBox", "street", "city", "state", "postalCode"],
+};
+// Position within an `adr` value (`[3][N]`) to the field it holds.
+const ADR_INDEX_FIELDS: Record<number, ContactField> = {
+  0: "poBox",
+  2: "street",
+  3: "city",
+  4: "state",
+  5: "postalCode",
+};
+
+function fieldsFromName(text: string): ContactField[] {
   const t = text.toLowerCase();
   const out: ContactField[] = [];
   if (/\bname\b|\bfn\b/.test(t) && !/\borg/.test(t)) out.push("name");
@@ -50,6 +67,26 @@ export function redactionFields(text: string): ContactField[] {
   if (/postal|post code|postcode|zip/.test(t)) out.push("postalCode");
   if (/\bpo box\b|\bpobox\b/.test(t)) out.push("poBox");
   return out;
+}
+
+function fieldsFromPath(path: string): ContactField[] {
+  const prop = /@\[0\]\s*==\s*'([a-z]+)'/i.exec(path)?.[1]?.toLowerCase();
+  if (!prop) return [];
+  if (prop === "adr") {
+    const idx = /\[3\]\[(\d+)\]\s*$/.exec(path)?.[1];
+    const field = idx === undefined ? undefined : ADR_INDEX_FIELDS[Number(idx)];
+    if (field) return [field];
+  }
+  return VCARD_PROPERTY_FIELDS[prop] ?? [];
+}
+
+/**
+ * Contact fields an RFC 9537 redaction covers, from its human-readable name (e.g. "Registrant
+ * Email") and, failing that, the vCard property in its `prePath`.
+ */
+export function redactionFields(name: string, prePath?: string): ContactField[] {
+  const fromName = fieldsFromName(name);
+  return fromName.length || !prePath ? fromName : fieldsFromPath(prePath);
 }
 
 /**

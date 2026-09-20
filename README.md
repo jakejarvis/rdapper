@@ -574,7 +574,7 @@ interface DomainRecord {
     >; // fields that were redacted (and are therefore absent)
     privacyService?: boolean; // name/organization is a privacy/proxy service (text kept), not a redaction notice
   }>;
-  privacyEnabled?: boolean; // registrant appears privacy-redacted based on name heuristics (privacy-service and redaction phrases) or RFC 9537 redactions
+  privacyEnabled?: boolean; // coarse: some registrant data was redacted or is behind a privacy service (name heuristics or RFC 9537 redactions); see the registrant contact's redactedFields/privacyService for which fields
   redactions?: Array<{
     name: string; // e.g. "Registrant Email"
     prePath?: string;

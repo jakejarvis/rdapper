@@ -240,7 +240,12 @@ export interface DomainRecord {
   nameservers?: Nameserver[];
   /** Contacts (registrant, admin, tech, billing, abuse, etc.) */
   contacts?: Contact[];
-  /** Best guess that the registrant is hidden behind a privacy service or redacted, from name/organization phrases or RFC 9537 redactions */
+  /**
+   * Coarse signal that some registrant data was redacted or is behind a privacy service, from
+   * name/organization phrases or RFC 9537 registrant redactions. It does not mean the registrant's
+   * identity is hidden (an email-only redaction sets it); check the registrant contact's
+   * `redactedFields` and `privacyService` for precision.
+   */
   privacyEnabled?: boolean;
   /** RFC 9537 redaction metadata reported by RDAP, if any */
   redactions?: Redaction[];

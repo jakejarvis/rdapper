@@ -53,7 +53,6 @@ export function normalizeRdap(
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled =
     isPrivacyContact(registrant) ||
-    !!registrant?.redacted ||
     !!redactions?.some((r) => redactionTargetsRole(r, "registrant"));
 
   // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
@@ -257,7 +256,7 @@ function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[]
     const matching = (redactions ?? []).filter((r) => redactionTargetsRole(r, type.toLowerCase()));
     // Fields the redaction names, limited to ones actually absent (a present value wasn't hidden).
     const fields = matching
-      .flatMap((r) => redactionFields(r.name))
+      .flatMap((r) => redactionFields(r.name, r.prePath))
       .filter((f) => !contact[f] || (Array.isArray(contact[f]) && !contact[f]?.length));
     out.push(finalizeContact(contact, fields.length ? fields : matching.length > 0));
   }

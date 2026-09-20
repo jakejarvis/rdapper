@@ -325,3 +325,28 @@ test("normalizeRdap resolves registrar countryCode from the country name", () =>
   );
   expect(rec.registrar).toMatchObject({ country: "Canada", countryCode: "CA" });
 });
+
+test("normalizeRdap ties a redaction path to redactedFields", () => {
+  const entity = {
+    roles: ["registrant"],
+    vcardArray: ["vcard", [["fn", {}, "text", "Jane Doe"]]],
+  };
+  const emailOnly = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      redacted: [
+        {
+          name: { description: "Registrant Email" },
+          prePath: "$.entities[?(@.roles[0]=='registrant')].vcardArray[1][?(@[0]=='email')][3]",
+          method: "emptyValue",
+        },
+      ],
+      entities: [entity],
+    },
+    [],
+  );
+  expect(emailOnly.contacts?.[0]?.redactedFields).toEqual(["email"]);
+  expect(emailOnly.contacts?.[0]?.redacted).toBe(true);
+});

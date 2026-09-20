@@ -59,6 +59,20 @@ test("redactionFields maps RFC 9537 names to contact fields", () => {
   expect(redactionFields("Registrant Postal Code")).toEqual(["postalCode"]);
 });
 
+test("redactionFields falls back to the vCard property in prePath", () => {
+  const path = (prop: string, tail = "") =>
+    `$.entities[?(@.roles[0]=='registrant')].vcardArray[1][?(@[0]=='${prop}')]${tail}`;
+  expect(redactionFields("Redacted", path("email"))).toEqual(["email"]);
+  expect(redactionFields("REDACTED", path("fn"))).toEqual(["name"]);
+  expect(redactionFields("x", path("org"))).toEqual(["organization"]);
+  expect(redactionFields("x", path("tel"))).toEqual(["phone"]);
+  expect(redactionFields("x", path("adr", "[3][3]"))).toEqual(["city"]);
+  expect(redactionFields("x", path("adr"))).toContain("street");
+  expect(redactionFields("x", "$.entities[0]")).toEqual([]);
+  // The name wins when it identifies fields
+  expect(redactionFields("Registrant Email", path("fn"))).toEqual(["email"]);
+});
+
 test("isPlaceholderValue covers common registry boilerplate", () => {
   for (const v of [
     "Not available from registry",
@@ -71,7 +85,9 @@ test("isPlaceholderValue covers common registry boilerplate", () => {
   ]) {
     expect(isPlaceholderValue(v), v).toBe(true);
   }
+  // Bare tokens only match the whole value
   expect(isPlaceholderValue("Unknown Pleasures Ltd")).toBe(false);
+  expect(isPlaceholderValue("Na Health Inc")).toBe(false);
 });
 
 test("package entry exports the contact predicates", () => {
