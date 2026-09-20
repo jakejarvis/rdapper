@@ -1,6 +1,6 @@
 {
   "name": "rdapper",
-  "version": "0.16.3",
+  "version": "0.16.4",
   "description": "🎩 RDAP/WHOIS fetcher, parser, and normalizer for Node",
   "keywords": [
     "domain",
