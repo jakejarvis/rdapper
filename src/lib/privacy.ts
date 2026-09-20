@@ -69,7 +69,12 @@ const PLACEHOLDER_VALUE_PATTERNS = [
   /please query the rdap/i,
   /query the whois/i,
   /\bcontact (?:the )?registrar\b/i,
-  /^(?:-+|n\/a|na|none|null|undefined)$/i,
+  /\bnot available from registry\b/i,
+  /\bnot applicable\b/i,
+  /\bdata protected\b/i,
+  /\b(?:statutory|gdpr) mask(?:ing|ed)\b/i,
+  /select request email form/i,
+  /^(?:-+|n\/a|na|none|null|undefined|unknown)$/i,
 ];
 
 /** True when a contact field value (email, phone, ...) is a placeholder rather than real data. */

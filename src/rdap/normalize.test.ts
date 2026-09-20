@@ -303,6 +303,7 @@ test("normalizeRdap flags contacts with placeholder values or matching redaction
   expect(registrant?.email).toBeUndefined();
   expect(registrant?.redacted).toBe(true);
   expect(registrant?.countryCode).toBe("DE");
+  expect(registrant?.redactedFields).toEqual(["email"]);
   expect(tech?.redacted).toBe(true);
   expect(admin?.redacted).toBeUndefined();
 });

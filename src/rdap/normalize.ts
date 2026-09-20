@@ -1,7 +1,6 @@
 import { resolveCountry } from "../lib/countries";
-import { finalizeContact } from "../lib/contacts";
+import { finalizeContact, isPrivacyContact, redactionFields } from "../lib/contacts";
 import { toISO } from "../lib/dates";
-import { isPrivacyName } from "../lib/privacy";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
 import { parseVcard } from "./vcard";
 import type { Contact, DomainRecord, Nameserver, Redaction, RegistrarInfo } from "../types";
@@ -53,10 +52,7 @@ export function normalizeRdap(
   // Derive privacy flag from registrant name/org keywords or RFC 9537 registrant redactions
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled =
-    !!(
-      registrant &&
-      ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
-    ) ||
+    isPrivacyContact(registrant) ||
     !!registrant?.redacted ||
     !!redactions?.some((r) => redactionTargetsRole(r, "registrant"));
 
@@ -258,8 +254,12 @@ function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[]
       country: v.country,
       countryCode: v.countryCode,
     };
-    const hinted = !!redactions?.some((r) => redactionTargetsRole(r, type.toLowerCase()));
-    out.push(finalizeContact(contact, hinted));
+    const matching = (redactions ?? []).filter((r) => redactionTargetsRole(r, type.toLowerCase()));
+    // Fields the redaction names, limited to ones actually absent (a present value wasn't hidden).
+    const fields = matching
+      .flatMap((r) => redactionFields(r.name))
+      .filter((f) => !contact[f] || (Array.isArray(contact[f]) && !contact[f]?.length));
+    out.push(finalizeContact(contact, fields.length ? fields : matching.length > 0));
   }
   return out.length ? out : undefined;
 }

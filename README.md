@@ -560,6 +560,19 @@ interface DomainRecord {
     country?: string;
     countryCode?: string; // ISO 3166-1 alpha-2; country/countryCode are resolved from each other when possible
     redacted?: boolean; // some contact data was redacted/withheld or replaced by a placeholder
+    redactedFields?: Array<
+      | "name"
+      | "organization"
+      | "email"
+      | "phone"
+      | "fax"
+      | "street"
+      | "city"
+      | "state"
+      | "postalCode"
+      | "poBox"
+    >; // fields that were redacted (and are therefore absent)
+    privacyService?: boolean; // name/organization is a privacy/proxy service (text kept), not a redaction notice
   }>;
   privacyEnabled?: boolean; // registrant appears privacy-redacted based on name heuristics (privacy-service and redaction phrases) or RFC 9537 redactions
   redactions?: Array<{

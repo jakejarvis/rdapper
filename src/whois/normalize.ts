@@ -1,6 +1,5 @@
 import { toISOFromTokens } from "../lib/dates";
-import { finalizeContact } from "../lib/contacts";
-import { isPrivacyName } from "../lib/privacy";
+import { finalizeContact, isPrivacyContact } from "../lib/contacts";
 import { parseKeyValueLines, uniq } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
@@ -218,10 +217,7 @@ export function normalizeWhois(
 
   // Derive privacy flag from registrant name/org keywords
   const registrant = contacts?.find((c) => c.type === "registrant");
-  const privacyEnabled = !!(
-    registrant &&
-    ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
-  );
+  const privacyEnabled = isPrivacyContact(registrant);
 
   const dnssecRaw = (map.dnssec?.[0] || "").toLowerCase();
   const dnssec = dnssecRaw ? { enabled: /signed|yes|true/.test(dnssecRaw) } : undefined;

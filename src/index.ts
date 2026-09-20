@@ -235,4 +235,6 @@ export async function isRegistered(domain: string, opts?: LookupOptions): Promis
 export const lookupDomain = lookup;
 
 export { getDomainParts, getDomainTld, isLikelyDomain, toRegistrableDomain } from "./lib/domain";
+export { resolveCountry } from "./lib/countries";
+export { isPlaceholderValue, isPrivacyName } from "./lib/privacy";
 export type * from "./types";

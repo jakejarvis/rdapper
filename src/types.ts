@@ -89,7 +89,27 @@ export interface Contact {
   countryCode?: string;
   /** True when any of this contact's data was redacted, withheld, or replaced by a placeholder */
   redacted?: boolean;
+  /**
+   * Fields the registry redacted or replaced with placeholder text (the field itself is then
+   * absent). Empty or omitted when the redaction could not be tied to specific fields.
+   */
+  redactedFields?: ContactField[];
+  /** True when `name`/`organization` names a privacy or proxy service rather than the registrant */
+  privacyService?: boolean;
 }
+
+/** Contact fields that can be reported as redacted in `Contact.redactedFields`. */
+export type ContactField =
+  | "name"
+  | "organization"
+  | "email"
+  | "phone"
+  | "fax"
+  | "street"
+  | "city"
+  | "state"
+  | "postalCode"
+  | "poBox";
 
 /**
  * An RFC 9537 redaction entry describing a field the registry withheld.
