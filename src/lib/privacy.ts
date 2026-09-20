@@ -1,41 +1,61 @@
-export const PRIVACY_NAME_KEYWORDS = [
-  "redacted",
-  "privacy",
-  "private",
+/**
+ * Phrases that indicate privacy/redaction on their own. Matched as case-insensitive substrings.
+ */
+export const PRIVACY_STRONG_KEYWORDS = [
+  "redacted", // also covers "redacted for privacy", "redacted.forprivacy"
   "withheld",
   "not disclosed",
-  "protected",
-  "protection",
   "privado", // Spanish
   "datos privados", // Spanish
   "data protected",
-  "data redacted",
-  "gdpr redacted",
   "gdpr masked",
   "non-public data",
   "statutory masking",
-  "redacted.forprivacy",
   "registration private",
+  "private registration",
   "hidden upon user request",
   "not available from registry",
+  "whois privacy",
+  "whoisguard",
+  "privacy protect",
+  "privacy service",
+  "domain privacy",
+  "contact privacy",
+  "domains by proxy",
+  "proxy service",
+  "for privacy",
 ];
 
-// Completely unusable/empty values that should be filtered
-export const NO_DATA_VALUES = [
-  "-",
-  ".",
-  "n/a",
-  "na",
-  "no data",
-  "not available",
-  "not applicable",
-  "none",
+/**
+ * Words too ambiguous to trust alone ("Private Equity LLC", "Protection One"). They only count
+ * when at least two distinct terms from WEAK + CONTEXT appear as whole words.
+ */
+const PRIVACY_WEAK_WORDS = ["privacy", "private", "protect", "protected", "protection"];
+const PRIVACY_CONTEXT_WORDS = [
+  "whois",
+  "proxy",
+  "domain",
+  "domains",
+  "registration",
+  "guard",
+  "service",
+  "services",
+  "masked",
+  "anonymous",
+  "identity",
+  "contact",
 ];
+const WEAK_WORD_RE = new RegExp(`\\b(?:${PRIVACY_WEAK_WORDS.join("|")})\\b`, "g");
+const CONTEXT_WORD_RE = new RegExp(
+  `\\b(?:${[...PRIVACY_WEAK_WORDS, ...PRIVACY_CONTEXT_WORDS].join("|")})\\b`,
+  "g",
+);
 
+/** True when a registrant name/organization looks like a privacy service or redaction notice. */
 export function isPrivacyName(value: string): boolean {
   const v = value.toLowerCase().trim();
-  // Check for complete no-data values
-  if (NO_DATA_VALUES.includes(v)) return true;
-  // Check for privacy keywords
-  return PRIVACY_NAME_KEYWORDS.some((k) => v.includes(k));
+  if (PRIVACY_STRONG_KEYWORDS.some((k) => v.includes(k))) return true;
+  if (!WEAK_WORD_RE.test(v)) return false;
+  WEAK_WORD_RE.lastIndex = 0;
+  return new Set(v.match(CONTEXT_WORD_RE)).size >= 2;
 }

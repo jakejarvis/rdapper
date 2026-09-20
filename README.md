@@ -555,7 +555,7 @@ interface DomainRecord {
     country?: string;
     countryCode?: string;
   }>;
-  privacyEnabled?: boolean; // registrant appears privacy-redacted based on keyword heuristics or RFC 9537 redactions
+  privacyEnabled?: boolean; // registrant appears privacy-redacted based on name heuristics (privacy-service and redaction phrases) or RFC 9537 redactions
   redactions?: Array<{
     name: string; // e.g. "Registrant Email"
     prePath?: string;
