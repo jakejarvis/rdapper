@@ -508,6 +508,12 @@ interface DomainRecord {
     url?: string;
     email?: string;
     phone?: string;
+    street?: string[]; // address (RDAP only)
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    countryCode?: string; // ISO 3166-1 alpha-2, from the vCard "cc" parameter
   };
   reseller?: string;
   statuses?: Array<{
@@ -549,7 +555,15 @@ interface DomainRecord {
     country?: string;
     countryCode?: string;
   }>;
-  privacyEnabled?: boolean; // registrant appears privacy-redacted based on keyword heuristics
+  privacyEnabled?: boolean; // registrant appears privacy-redacted based on keyword heuristics or RFC 9537 redactions
+  redactions?: Array<{
+    name: string; // e.g. "Registrant Email"
+    prePath?: string;
+    postPath?: string;
+    replacementPath?: string;
+    method?: string; // e.g. "emptyValue", "partialValue"
+    reason?: string;
+  }>; // RFC 9537 redaction metadata (RDAP only)
   whoisServer?: string; // authoritative WHOIS queried (if any)
   rdapServers?: string[]; // RDAP URLs tried (bootstrap bases and related/entity links)
   rawRdap?: unknown; // raw RDAP JSON (only when options.includeRaw)

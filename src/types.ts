@@ -23,6 +23,14 @@ export interface RegistrarInfo {
   email?: string;
   /** Registrar contact phone number */
   phone?: string;
+  /** Registrar street address lines */
+  street?: string[];
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  /** ISO 3166-1 alpha-2 country code, when provided */
+  countryCode?: string;
 }
 
 /**
@@ -53,6 +61,24 @@ export interface Contact {
   postalCode?: string;
   country?: string;
   countryCode?: string;
+}
+
+/**
+ * An RFC 9537 redaction entry describing a field the registry withheld.
+ */
+export interface Redaction {
+  /** Human-readable name/type of the redacted field (e.g., "Registrant Email") */
+  name: string;
+  /** JSONPath to the redacted field's parent/location */
+  prePath?: string;
+  /** JSONPath to the redacted field itself, if present */
+  postPath?: string;
+  /** JSONPath to a replacement value, if any */
+  replacementPath?: string;
+  /** Redaction method (e.g., "emptyValue", "partialValue", "replacementValue", "removal") */
+  method?: string;
+  /** Reason for redaction (description or type) */
+  reason?: string;
 }
 
 /**
@@ -162,6 +188,8 @@ export interface DomainRecord {
   contacts?: Contact[];
   /** Best guess as to whether registrant is redacted based on keywords */
   privacyEnabled?: boolean;
+  /** RFC 9537 redaction metadata reported by RDAP, if any */
+  redactions?: Redaction[];
   /** Authoritative WHOIS queried (if any) */
   whoisServer?: string;
   /** RDAP base URLs tried */

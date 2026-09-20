@@ -370,6 +370,8 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
         state: state || undefined,
         postalCode: postalCode || undefined,
         country: country || undefined,
+        // Many registries print the ISO 3166-1 alpha-2 code directly
+        countryCode: country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : undefined,
       });
     }
   }

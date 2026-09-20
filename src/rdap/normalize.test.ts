@@ -135,3 +135,135 @@ test("normalizeRdap treats release-pending statuses as not registered", () => {
   );
   expect(active.isRegistered).toBe(true);
 });
+
+test("normalizeRdap reads vCard adr cc parameter into countryCode", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrant"],
+          vcardArray: [
+            "vcard",
+            [["adr", { cc: "us" }, "text", ["", "", "1 Main St", "Town", "CA", "90000", "USA"]]],
+          ],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.contacts?.[0]?.country).toBe("USA");
+  expect(rec.contacts?.[0]?.countryCode).toBe("US");
+});
+
+test("normalizeRdap parses RFC 9537 redacted array and flags privacy", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      redacted: [
+        {
+          name: { description: "Registrant Email" },
+          prePath: "$.entities[?(@.roles[0]=='registrant')].vcardArray[1][?(@[0]=='email')]",
+          method: "emptyValue",
+          reason: { description: "Server policy" },
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.redactions).toEqual([
+    expect.objectContaining({
+      name: "Registrant Email",
+      method: "emptyValue",
+      reason: "Server policy",
+    }),
+  ]);
+  expect(rec.privacyEnabled).toBe(true);
+});
+
+test("normalizeRdap separates fax from tel and keeps multiple emails", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrant"],
+          vcardArray: [
+            "vcard",
+            [
+              ["tel", { type: "voice" }, "text", "+1.111"],
+              ["tel", { type: ["work", "fax"] }, "text", "+1.222"],
+              ["email", {}, "text", "a@example.com"],
+              ["email", {}, "text", "b@example.com"],
+              ["adr", {}, "text", ["", "", "Suite 5, 1 Main St", "Town", "", "", ""]],
+            ],
+          ],
+        },
+      ],
+    },
+    [],
+  );
+  const c = rec.contacts?.[0];
+  expect(c?.phone).toBe("+1.111");
+  expect(c?.fax).toBe("+1.222");
+  expect(c?.email).toEqual(["a@example.com", "b@example.com"]);
+  expect(c?.street).toEqual(["Suite 5, 1 Main St"]);
+});
+
+test("normalizeRdap prefers registration event over reregistration", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      events: [
+        { eventAction: "reregistration", eventDate: "2024-01-01T00:00:00Z" },
+        { eventAction: "registration", eventDate: "2020-01-01T00:00:00Z" },
+      ],
+    },
+    [],
+  );
+  expect(rec.creationDate).toBe("2020-01-01T00:00:00Z");
+});
+
+test("normalizeRdap maps registrar adr and cc", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrar"],
+          vcardArray: [
+            "vcard",
+            [
+              ["fn", {}, "text", "Registrar LLC"],
+              [
+                "adr",
+                { cc: "CA" },
+                "text",
+                ["", "", "5 King St", "Toronto", "ON", "M5H", "Canada"],
+              ],
+            ],
+          ],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.registrar).toMatchObject({
+    street: ["5 King St"],
+    city: "Toronto",
+    state: "ON",
+    postalCode: "M5H",
+    country: "Canada",
+    countryCode: "CA",
+  });
+});

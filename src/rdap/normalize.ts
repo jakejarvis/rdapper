@@ -1,7 +1,7 @@
 import { toISO } from "../lib/dates";
 import { isPrivacyName } from "../lib/privacy";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
-import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
+import type { Contact, DomainRecord, Nameserver, Redaction, RegistrarInfo } from "../types";
 
 type RdapDoc = Record<string, unknown>;
 
@@ -44,12 +44,16 @@ export function normalizeRdap(
   // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
   const contacts: Contact[] | undefined = extractContacts(doc.entities as unknown);
 
-  // Derive privacy flag from registrant name/org keywords
+  // RFC 9537 redaction metadata
+  const redactions = extractRedactions(doc.redacted);
+
+  // Derive privacy flag from registrant name/org keywords or RFC 9537 registrant redactions
   const registrant = contacts?.find((c) => c.type === "registrant");
-  const privacyEnabled = !!(
-    registrant &&
-    ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
-  );
+  const privacyEnabled =
+    !!(
+      registrant &&
+      ([registrant.name, registrant.organization].filter(Boolean) as string[]).some(isPrivacyName)
+    ) || !!redactions?.some((r) => /registrant/i.test(`${r.prePath ?? ""} ${r.name}`));
 
   // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
   const statuses = Array.isArray(doc.status)
@@ -81,10 +85,14 @@ export function normalizeRdap(
   const events: RdapEvent[] = Array.isArray(doc.events)
     ? (doc.events as unknown[] as RdapEvent[])
     : [];
+  const actionOf = (e: RdapEvent) => (typeof e?.eventAction === "string" ? e.eventAction : "");
+  // Prefer an exact match, then a substring match that ignores "reregistration" (RFC 9083)
   const byAction = (action: string) =>
-    events.find(
-      (e) => typeof e?.eventAction === "string" && e.eventAction.toLowerCase().includes(action),
-    );
+    events.find((e) => actionOf(e).toLowerCase() === action) ??
+    events.find((e) => {
+      const a = actionOf(e).toLowerCase();
+      return a.includes(action) && a !== "reregistration";
+    });
   const creationDate = toISO(
     asDateLike(byAction("registration")?.eventDate) ?? asDateLike(doc.registrationDate),
   );
@@ -135,6 +143,7 @@ export function normalizeRdap(
       : undefined,
     contacts,
     privacyEnabled: privacyEnabled ? true : undefined,
+    redactions,
     whoisServer,
     rdapServers: rdapServersTried,
     rawRdap: includeRaw ? rdap : undefined,
@@ -144,6 +153,29 @@ export function normalizeRdap(
   };
 
   return record;
+}
+
+/** Parse the RFC 9537 top-level "redacted" array. */
+function extractRedactions(redacted: unknown): Redaction[] | undefined {
+  if (!Array.isArray(redacted)) return undefined;
+  const out: Redaction[] = [];
+  for (const item of redacted) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as RdapDoc;
+    const nameObj = (r.name ?? {}) as RdapDoc;
+    const name = asString(nameObj.description) || asString(nameObj.type);
+    if (!name) continue;
+    const reason = (r.reason ?? {}) as RdapDoc;
+    out.push({
+      name,
+      prePath: asString(r.prePath) || undefined,
+      postPath: asString(r.postPath) || undefined,
+      replacementPath: asString(r.replacementPath) || undefined,
+      method: asString(r.method) || undefined,
+      reason: asString(reason.description) || asString(reason.type) || undefined,
+    });
+  }
+  return out.length ? out : undefined;
 }
 
 function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
@@ -163,8 +195,14 @@ function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
       name: v.fn || v.org || asString((ent as RdapDoc)?.handle) || undefined,
       ianaId: asString(ianaId),
       url: v.url ?? undefined,
-      email: v.email ?? undefined,
-      phone: v.tel ?? undefined,
+      email: v.email?.[0],
+      phone: v.tel?.[0],
+      street: v.street,
+      city: v.locality,
+      state: v.region,
+      postalCode: v.postcode,
+      country: v.country,
+      countryCode: v.countryCode,
     };
   }
   return undefined;
@@ -195,9 +233,9 @@ function extractContacts(entities: unknown): Contact[] | undefined {
       type: roleKey,
       name: v.fn,
       organization: v.org,
-      email: v.email,
-      phone: v.tel,
-      fax: v.fax,
+      email: single(v.email),
+      phone: single(v.tel),
+      fax: single(v.fax),
       street: v.street,
       city: v.locality,
       state: v.region,
@@ -209,12 +247,18 @@ function extractContacts(entities: unknown): Contact[] | undefined {
   return out.length ? out : undefined;
 }
 
+/** Collapse a list to undefined, a single string, or the array when there are several. */
+function single(list: string[] | undefined): string | string[] | undefined {
+  if (!list?.length) return undefined;
+  return list.length === 1 ? list[0] : list;
+}
+
 interface ParsedVCard {
   fn?: string;
   org?: string;
-  email?: string;
-  tel?: string;
-  fax?: string;
+  email?: string[];
+  tel?: string[];
+  fax?: string[];
   url?: string;
   street?: string[];
   locality?: string;
@@ -242,28 +286,38 @@ function parseVcard(vcardArray: unknown): ParsedVCard {
       case "org":
         out.org = Array.isArray(value) ? value.map((x) => String(x)).join(" ") : asString(value);
         break;
-      case "email":
-        out.email = asString(value);
+      case "email": {
+        const v = asString(value);
+        if (v) (out.email ??= []).push(v);
         break;
-      case "tel":
-        out.tel = asString(value);
+      }
+      case "tel": {
+        const v = asString(value);
+        if (!v) break;
+        // RFC 6350 TYPE parameter may be a string or array (e.g. "fax", ["work", "fax"])
+        const type = e?.[1]?.type;
+        const types = (Array.isArray(type) ? type : [type]).map((t) => String(t).toLowerCase());
+        (types.includes("fax") ? (out.fax ??= []) : (out.tel ??= [])).push(v);
         break;
+      }
       case "url":
         out.url = asString(value);
         break;
       case "adr": {
         // adr value is [postOfficeBox, extendedAddress, street, locality, region, postalCode, country]
         if (Array.isArray(value)) {
-          out.street = value[2] ? String(value[2]).split(/\n|,\s*/) : undefined;
+          out.street = value[2] ? String(value[2]).split(/\r?\n/).filter(Boolean) : undefined;
           out.locality = asString(value[3]);
           out.region = asString(value[4]);
           out.postcode = asString(value[5]);
           out.country = asString(value[6]);
+          // RFC 8605: ISO 3166-1 alpha-2 code lives in the "cc" parameter
+          const cc = asString(e?.[1]?.cc);
+          if (cc) out.countryCode = cc.toUpperCase();
         }
         break;
       }
     }
   }
-  // Best effort country code from country name (often omitted). Leaving undefined unless explicitly provided.
   return out;
 }

@@ -43,6 +43,13 @@ export function mergeRdapDocs(baseDoc: unknown, others: unknown[]): unknown {
     if (merged.secureDNS == null && cur.secureDNS != null) merged.secureDNS = cur.secureDNS;
     // port43 (authoritative WHOIS): prefer existing; fill if missing
     if (merged.port43 == null && cur.port43 != null) merged.port43 = cur.port43;
+    // redacted (RFC 9537): concat, dedupe by JSON
+    if (merged.redacted != null || cur.redacted != null) {
+      merged.redacted = uniqBy(
+        [...toArray<Json>(merged.redacted), ...toArray<Json>(cur.redacted)],
+        (r) => JSON.stringify(r),
+      );
+    }
     // remarks: concat simple strings if present
     const mergedRemarks = (merged as { remarks?: Json[] }).remarks;
     const curRemarks = (cur as { remarks?: Json[] }).remarks;
