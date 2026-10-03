@@ -76,12 +76,12 @@ async function loadBootstrapData(
           },
         ),
       );
-    } catch (err: unknown) {
+    } catch {
       // Preserve caller cancellation behavior - rethrow if explicitly aborted (or deadline hit)
       if (options?.signal?.aborted) throwIfAborted(options.signal);
-      if (err instanceof Error && err.name === "AbortError") throw err;
       // Network, timeout, or JSON parse errors - return empty array to fall back to WHOIS
-      // (the failure is recorded in ctx.attempts)
+      // (the failure is recorded in ctx.attempts). An AbortError the caller didn't cause (a
+      // customFetch's own timeout) is one of these.
       return undefined;
     }
   }

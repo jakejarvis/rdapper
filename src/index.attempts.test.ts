@@ -342,3 +342,21 @@ describe("timeouts, deadline and abort", () => {
     expect(vi.mocked(whoisQuery)).not.toHaveBeenCalled();
   });
 });
+
+describe("bootstrap AbortError not caused by the caller", () => {
+  it("falls back to WHOIS instead of failing as aborted", async () => {
+    vi.mocked(whoisQuery).mockResolvedValue({
+      serverQueried: "whois.verisign-grs.com",
+      text: whoisText,
+    });
+    const customFetch: FetchLike = vi.fn(async () => {
+      throw new DOMException("customFetch timed out", "AbortError");
+    });
+    const res = await lookup("example.com", {
+      customFetch,
+      whoisHints: { com: "whois.verisign-grs.com" },
+    });
+    expect(res.ok, res.error).toBe(true);
+    expect(res.record?.source).toBe("whois");
+  });
+});
