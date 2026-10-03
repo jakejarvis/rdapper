@@ -18,6 +18,9 @@ describe("discoverWhoisServer for sub-registry suffixes", () => {
   it("uses the operator's server without asking IANA", async () => {
     expect(await discoverWhoisServer("uk.com")).toEqual({ server: "whois.centralnic.com" });
     expect(whoisQuery).not.toHaveBeenCalled();
+    // Nominet's whois.nic.uk answers ac.uk names with the ac.uk delegation itself
+    expect(await discoverWhoisServer("ac.uk")).toEqual({ server: "whois.ja.net" });
+    expect(whoisQuery).not.toHaveBeenCalled();
   });
 
   it("still lets whoisHints override it", async () => {

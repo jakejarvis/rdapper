@@ -688,3 +688,44 @@ test("WHOIS local times from registries in WHOIS_TIME_ZONES match their RDAP val
       .creationDate,
   ).toBe("2008-05-22T14:00:00Z");
 });
+
+test("WHOIS .ac.uk (Jisc) tab-indented sections", () => {
+  const text = [
+    "",
+    "Domain:\n\tox.ac.uk",
+    "Registered For:\n\tUniversity of Oxford",
+    "Domain Owner:\n\tUniversity of Oxford",
+    "Registered By:\n\tUniversity of Oxford",
+    "Servers:\n\tdns0.ox.ac.uk\t129.67.1.190\n\tauth4.dns.ox.ac.uk\t45.33.127.156\n\tauth4.dns.ox.ac.uk\t2600:3c00:e000:19::1",
+    "Registrant Contact:\n\tDomain Registration",
+    "Registrant Address:\n\tIT Services, University of Oxford\n\t7-19 Banbury Road\n\tOxford\n\tOxfordshire\n\tOX2 6NN\n\tUnited Kingdom\n\t+44 1865 273619 (Phone)\n\tdomain-registration@it.ox.ac.uk",
+    "Renewal date:\n\tWednesday 26th Jul 2028",
+    "Entry updated:\n\tSunday 26th April 2026",
+    "Entry created:\n\tWednesday 17th September 2003",
+    "",
+  ].join("\n\n");
+  const rec = normalizeWhois("ox.ac.uk", "ac.uk", text, "whois.ja.net");
+  expect(rec.isRegistered).toBe(true);
+  expect(rec.creationDate).toBe("2003-09-17T00:00:00Z");
+  expect(rec.updatedDate).toBe("2026-04-26T00:00:00Z");
+  expect(rec.expirationDate).toBe("2028-07-26T00:00:00Z");
+  expect(rec.registrar?.name).toBe("University of Oxford");
+  expect(rec.nameservers).toEqual([
+    { host: "dns0.ox.ac.uk", ipv4: ["129.67.1.190"] },
+    { host: "auth4.dns.ox.ac.uk", ipv4: ["45.33.127.156"], ipv6: ["2600:3c00:e000:19::1"] },
+  ]);
+  expect(rec.contacts?.find((c) => c.type === "registrant")).toMatchObject({
+    name: "Domain Registration",
+    organization: "University of Oxford",
+  });
+});
+
+test("WHOIS .ac.uk (Jisc) 'No such domain' reply is available", () => {
+  const rec = normalizeWhois(
+    "nonexistent.ac.uk",
+    "ac.uk",
+    "\nNo such domain nonexistent.ac.uk\n\n",
+    "whois.ja.net",
+  );
+  expect(rec.isRegistered).toBe(false);
+});

@@ -32,9 +32,9 @@ const FORMATS: Array<[RegExp, (m: RegExpMatchArray) => number | undefined]> = [
     /^(\d{4})(\d{2})(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2}))?$/,
     (m) => utc(m[1], m[2], m[3], m[4], m[5], m[6]),
   ],
-  // 28th December 2018 [at 05:54:43[.861]] (used by .gg/.je)
+  // [Wednesday] 28th December 2018 [at 05:54:43[.861]] (used by .gg/.je; the weekday by .ac.uk)
   [
-    /^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})(?:\s+at\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/,
+    /^(?:[A-Za-z]+day,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})(?:\s+at\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/,
     (m) => utc(m[3], monthOf(m[2]), m[1], m[4], m[5], m[6]),
   ],
 ];

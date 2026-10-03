@@ -130,9 +130,10 @@ export async function getRdapBaseUrlsForTld(
  * Like {@link getRdapBaseUrlsForTld}, for a public suffix that may be multi-label.
  *
  * Sub-registry suffixes (`uk.com`) are answered from {@link SUB_REGISTRIES} without loading the
- * bootstrap. Otherwise IANA lists registry TLDs (`uk`, `br`), not public suffixes (`co.uk`,
- * `com.br`), so the suffix usually misses and the last label is tried next. The bootstrap data
- * is loaded once and reused for both lookups.
+ * bootstrap, with none for an operator that publishes no RDAP (`ac.uk`). Otherwise IANA lists
+ * registry TLDs (`uk`, `br`), not public suffixes (`co.uk`, `com.br`), so the suffix usually
+ * misses and the last label is tried next. The bootstrap data is loaded once and reused for both
+ * lookups.
  */
 export async function getRdapBaseUrlsForPublicSuffix(
   publicSuffix: string,
@@ -140,7 +141,7 @@ export async function getRdapBaseUrlsForPublicSuffix(
   ctx?: LookupContext,
 ): Promise<string[]> {
   const subRegistry = SUB_REGISTRIES[publicSuffix.toLowerCase()];
-  if (subRegistry) return [subRegistry.rdap];
+  if (subRegistry) return subRegistry.rdap ? [subRegistry.rdap] : [];
   const data = await loadBootstrapData(options, ctx);
   if (!data) return [];
   const bases = matchBases(data, publicSuffix);

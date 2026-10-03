@@ -488,4 +488,11 @@ describe("getRdapBaseUrlsForPublicSuffix", () => {
     ]);
     expect(customFetch).not.toHaveBeenCalled();
   });
+
+  it("returns no RDAP bases for a sub-registry without RDAP, not its TLD's server", async () => {
+    // Nominet's RDAP (listed for uk) answers 404 for ac.uk names, which would read as unregistered
+    const customFetch = okFetch();
+    expect(await getRdapBaseUrlsForPublicSuffix("ac.uk", { customFetch })).toEqual([]);
+    expect(customFetch).not.toHaveBeenCalled();
+  });
 });

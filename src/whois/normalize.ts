@@ -33,6 +33,7 @@ const WHOIS_AVAILABLE_PHRASES: RegExp[] = [
   /\bobject_not_found\b/i,
   /\bno se encuentra registrado\b/i, // Spanish: "not found registered"
   /\bnicht gefunden\b/i, // German: "not found"
+  /\bno such domain\b/i, // .ac.uk
 ];
 
 // Statuses that mark a name unregistered even though the record still carries data, as a name
@@ -103,6 +104,7 @@ export function normalizeWhois(
       "registered date", // .co.jp, .kr
       "created date", // .th
       "assigned", // .il
+      "entry created", // .ac.uk
     ]) ??
     relevantDate(/^registered on\s+/i) ??
     recordDate(/^[ \t]*Record created on[ \t]+(.+?)\.?$/im);
@@ -122,6 +124,7 @@ export function normalizeWhois(
         "last updated date", // .kr
         "update date", // .by
         "domain record last updated", // .edu
+        "entry updated", // .ac.uk
       ],
       true,
     ) ?? recordDate(/^[ \t]*Record last updated on[ \t]+(.+?)\.?$/im);
@@ -163,6 +166,7 @@ export function normalizeWhois(
       "sponsoring registrar",
       "record maintained by",
       "registration service provider", // .tw
+      "registered by", // .ac.uk
     ]);
     const ianaId = anyValue(map, ["registrar iana id", "sponsoring registrar iana id", "iana id"]);
     const url = anyValue(map, [
@@ -290,6 +294,7 @@ const NAMESERVER_KEYS = [
   "domain servers in listed order", // .ly
   "domain servers", // .tr
   "name servers dns", // .mx
+  "servers", // .ac.uk
 ];
 
 /**
@@ -440,6 +445,7 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
       nameKeys.push(`${prefix} name`, `${prefix} contact name`, `${prefix}`);
       if (prefix === "registrant") {
         nameKeys.push("registrant person"); // .ua
+        nameKeys.push("registrant contact"); // .ac.uk
       }
       if (prefix === "owner") {
         nameKeys.push("owner name"); // .tm
@@ -449,6 +455,7 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
       if (prefix === "registrant") {
         orgKeys.push("trading as"); // .uk, .co.uk
         orgKeys.push("org"); // .ru
+        orgKeys.push("registered for", "domain owner"); // .ac.uk
       }
       if (prefix === "owner") {
         orgKeys.push("owner orgname"); // .tm

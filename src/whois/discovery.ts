@@ -91,7 +91,7 @@ export async function discoverWhoisServer(
 
   // 1b) Sub-registry suffixes (e.g. uk.com), which IANA knows nothing about
   const subRegistry = SUB_REGISTRIES[key];
-  if (subRegistry) return { server: subRegistry.whois };
+  if (subRegistry) return subRegistry.whois ? { server: subRegistry.whois } : {};
 
   // 2) IANA WHOIS authoritative discovery over TCP 43
   const out: WhoisDiscovery = {};

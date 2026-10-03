@@ -1,9 +1,9 @@
 /** Where to look up names registered under a sub-registry suffix. */
 export interface SubRegistry {
-  /** RDAP base URL (with trailing slash) */
-  rdap: string;
-  /** WHOIS server */
-  whois: string;
+  /** RDAP base URL (with trailing slash), if the operator publishes RDAP */
+  rdap?: string;
+  /** WHOIS server, if the operator publishes WHOIS */
+  whois?: string;
 }
 
 // CentralNic's entries in the Public Suffix List (plus gr.com and co.com, which it also serves),
@@ -37,12 +37,17 @@ const CENTRALNIC_SUFFIXES = [
  * Second-level suffixes run as registries of their own: a name like google.uk.com is registered
  * with the suffix's operator, not the TLD registry, and the IANA bootstrap doesn't list them.
  */
-export const SUB_REGISTRIES: Readonly<Record<string, SubRegistry>> = Object.fromEntries(
-  CENTRALNIC_SUFFIXES.map((suffix) => [
-    suffix,
-    { rdap: `https://rdap.centralnic.com/${suffix}/`, whois: "whois.centralnic.com" },
-  ]),
-);
+export const SUB_REGISTRIES: Readonly<Record<string, SubRegistry>> = {
+  ...Object.fromEntries(
+    CENTRALNIC_SUFFIXES.map((suffix) => [
+      suffix,
+      { rdap: `https://rdap.centralnic.com/${suffix}/`, whois: "whois.centralnic.com" },
+    ]),
+  ),
+  // Jisc runs ac.uk. Nominet's RDAP answers 404 for its names (which reads as "not registered"),
+  // and Nominet's WHOIS answers with the ac.uk delegation itself.
+  "ac.uk": { whois: "whois.ja.net" },
+};
 
 /** The sub-registry suffix a domain falls under (e.g. "uk.com" for google.uk.com), if any. */
 export function getSubRegistrySuffix(domain: string): string | undefined {
