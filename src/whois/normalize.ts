@@ -237,8 +237,12 @@ export function normalizeWhois(
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled = isPrivacyContact(registrant);
 
-  const dnssecRaw = (map.dnssec?.[0] || "").toLowerCase();
-  const dnssec = dnssecRaw ? { enabled: /signed|yes|true/.test(dnssecRaw) } : undefined;
+  // "signedDelegation", "Signed delegation", "yes", "active" (.bg, .md); not "unsigned" or
+  // "Inactive". .kr repeats the field in Korean, so any value may carry the answer.
+  const dnssecValues = [...(map.dnssec ?? []), ...(map["dnssec signed"] ?? [])]; // .rs
+  const dnssec = dnssecValues.length
+    ? { enabled: dnssecValues.some((v) => /^(?:signed|yes|true|active)/i.test(v.trim())) }
+    : undefined;
 
   // Simple lock derivation from statuses
   const transferLock = !!statuses?.some((s) =>

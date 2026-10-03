@@ -397,3 +397,22 @@ test("WHOIS 'Reseller Name' (.au, .th) sets reseller", () => {
       .reseller,
   ).toBeUndefined();
 });
+
+test.each([
+  ["DNSSEC: unsigned", false],
+  ["DNSSEC: Inactive", false], // .ro
+  ["DNSSEC: signedDelegation", true],
+  ["dnssec:           signed delegation", true], // .se
+  ["DNSSEC: active", true], // .bg
+  ["DNSSEC: yes", true],
+  ["DNSSEC signed: yes", true], // .rs
+  ["DNSSEC                      : 서명\nDNSSEC                      : signed", true], // .kr
+])("WHOIS DNSSEC %j -> enabled %s", (line, enabled) => {
+  const rec = normalizeWhois(
+    "example.test",
+    "test",
+    `Domain Name: example.test\n${line}\n`,
+    undefined,
+  );
+  expect(rec.dnssec?.enabled).toBe(enabled);
+});
