@@ -16,7 +16,7 @@ import type {
 } from "./types";
 import { discoverWhoisServer, parseIanaRegistrationInfoUrl } from "./whois/discovery";
 import { mergeWhoisRecords } from "./whois/merge";
-import { normalizeWhois } from "./whois/normalize";
+import { normalizeWhois, whoisReplyDomain } from "./whois/normalize";
 import { looksEmptyWhois } from "./whois/throttle";
 import { collectWhoisReferralChain } from "./whois/referral";
 
@@ -248,6 +248,17 @@ async function runLookup(
   const [first, ...rest] = normalizedRecords;
   if (!first) {
     return failure(ctx, "no_data", "No WHOIS data retrieved");
+  }
+  // A registry that doesn't hold the name may answer with the delegation it sits under (Nominet
+  // gave ac.uk's record for ox.ac.uk), which would pass for the name's own record
+  const replyDomain = chain[0] && whoisReplyDomain(chain[0].text);
+  if (replyDomain && domain.endsWith(`.${replyDomain}`)) {
+    return failure(
+      ctx,
+      "unparseable",
+      `WHOIS response from ${whoisServer} describes ${replyDomain}, not ${domain}`,
+      { phase: "whois", server: whoisServer },
+    );
   }
   // A "registered" answer with no fields at all is an error page or throttle notice, not a record
   if (first.isRegistered && looksEmptyWhois(first)) {

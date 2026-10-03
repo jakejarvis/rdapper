@@ -210,6 +210,50 @@ describe("error reporting", () => {
     expect(res.attempts).toMatchObject([{ phase: "iana", ok: false, stage: "connect" }]);
   });
 
+  it("fails when the WHOIS reply describes the domain the name sits under", async () => {
+    // Nominet's reply for ox.ac.uk, before ac.uk was routed to Jisc
+    vi.mocked(whoisQuery).mockResolvedValue({
+      serverQueried: "whois.nic.uk",
+      text: [
+        "",
+        "    Domain name:",
+        "        ac.uk",
+        "",
+        "    Registrant:",
+        "        The JNT Association",
+        "",
+        "    Relevant dates:",
+        "        Registered on: before Aug-1996",
+        "",
+        "    Name servers:",
+        "        ns0.ja.net.",
+        "        ns2.ja.net.",
+        "",
+      ].join("\n"),
+    });
+    const res = await lookup("ox.ac.uk", {
+      whoisOnly: true,
+      whoisHints: { "ac.uk": "whois.nic.uk" },
+    });
+    expect(res).toMatchObject({
+      ok: false,
+      errorCode: "unparseable",
+      errorPhase: "whois",
+      errorServer: "whois.nic.uk",
+    });
+    expect(res.error).toContain("describes ac.uk, not ox.ac.uk");
+  });
+
+  it("accepts a WHOIS reply naming the queried domain in any case", async () => {
+    vi.mocked(whoisQuery).mockResolvedValue({ serverQueried: "whois.example", text: whoisText });
+    const res = await lookup("example.com", {
+      whoisOnly: true,
+      whoisHints: { com: "whois.example" },
+    });
+    expect(res.ok, res.error).toBe(true);
+    expect(res.record?.isRegistered).toBe(true);
+  });
+
   it("reports no_server when IANA answers without a server", async () => {
     vi.mocked(whoisQuery).mockResolvedValue({
       serverQueried: "whois.iana.org",

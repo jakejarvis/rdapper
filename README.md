@@ -469,7 +469,7 @@ interface LookupResult {
 
 - `rate_limited`: the server throttled the query (RDAP `429`, or a short WHOIS notice such as `WHOIS LIMIT EXCEEDED`). Retrying later may work.
 - `blocked`: a WHOIS server refuses this client outright (e.g. `.ch`: "Requests of this client are not permitted"). Retrying will not help.
-- `unparseable`: WHOIS replied with text that is neither an availability notice nor a domain record (no registrar, dates, nameservers, statuses or contacts). It is reported as a failure rather than a "registered" record.
+- `unparseable`: WHOIS replied with text that is neither an availability notice nor a domain record (no registrar, dates, nameservers, statuses or contacts). It is reported as a failure rather than a "registered" record. So is a reply describing a domain the name sits under (a registry answering about `ac.uk` for `ox.ac.uk`).
 - `rdap_unavailable`: with `rdapOnly`, the TLD has no RDAP server. When RDAP servers were tried and failed, the failure's own code is reported (`rate_limited`, `timeout`, `http_error`, `connect_failed`, or `unparseable` for a response that couldn't be read), with `errorPhase`/`errorServer` pointing at it.
 
 `retryAfterMs` carries an RDAP `Retry-After` header (on `429` or `503`, as seconds or an HTTP date). It is set on the matching entry in `attempts`, and on the top-level result only when that RDAP attempt is the terminal failure, as with `rdapOnly`. Normally an RDAP failure falls through to WHOIS, so the value stays in `attempts`. The value is passed through as sent and is not capped, so clamp it before using it as a delay.

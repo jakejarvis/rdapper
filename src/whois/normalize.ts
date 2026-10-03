@@ -54,6 +54,15 @@ export function isAvailableByWhois(text: string | undefined): boolean {
   return !normalizeWhois("", "", text, undefined).isRegistered;
 }
 
+/**
+ * The domain a WHOIS reply describes, from its "Domain name:" or "Domain:" field (lowercase, no
+ * trailing dot), if it names one.
+ */
+export function whoisReplyDomain(text: string): string | undefined {
+  const name = anyValue(parseKeyValueLines(text), ["domain name", "domain"]);
+  return name?.trim().toLowerCase().replace(/\.$/, "") || undefined;
+}
+
 /** Whether a reply says the name is unregistered, given whether it carries registration data. */
 function saysAvailable(text: string, hasRegistrationData: boolean): boolean {
   if (WHOIS_AVAILABLE_STATUSES.some((re) => re.test(text))) return true;

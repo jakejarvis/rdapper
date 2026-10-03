@@ -492,8 +492,9 @@ export interface LookupResult {
  * - `no_server`: IANA answered but no WHOIS server exists for the TLD
  * - `rate_limited`: the server throttled the query (RDAP 429, or a WHOIS throttle notice)
  * - `blocked`: the WHOIS server refuses this client outright (retrying will not help)
- * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record,
- *   or (with `rdapOnly`) an RDAP response could not be read
+ * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record
+ *   (or with the record of a domain the name sits under), or (with `rdapOnly`) an RDAP response
+ *   could not be read
  * - `no_data`: a WHOIS server accepted the connection but closed it without sending anything
  * - `unsupported_runtime`: WHOIS needs `node:net`, which this runtime lacks
  * - `unknown`: any failure not covered above
