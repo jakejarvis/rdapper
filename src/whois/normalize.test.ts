@@ -416,3 +416,29 @@ test.each([
   );
   expect(rec.dnssec?.enabled).toBe(enabled);
 });
+
+test("WHOIS keys padded with dots (.fi)", () => {
+  // Excerpt of whois.fi for traficom.fi
+  const text = `
+domain.............: traficom.fi
+status.............: Registered
+created............: 15.8.2017 15:02:40
+expires............: 15.8.2029 15:02:40
+modified...........: 23.5.2026 18:17:05
+
+Nameservers
+nserver............: ns1.z.fi [OK]
+nserver............: ns2.z.fi [OK]
+
+DNSSEC
+dnssec.............: signed delegation
+`;
+  const rec = normalizeWhois("traficom.fi", "fi", text, "whois.fi");
+  expect(rec).toMatchObject({
+    creationDate: "2017-08-15T15:02:40Z",
+    expirationDate: "2029-08-15T15:02:40Z",
+    updatedDate: "2026-05-23T18:17:05Z",
+    nameservers: [{ host: "ns1.z.fi" }, { host: "ns2.z.fi" }],
+    dnssec: { enabled: true },
+  });
+});

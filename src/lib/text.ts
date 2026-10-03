@@ -51,7 +51,12 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
     // Colon form: Key: value
     const idx = line.indexOf(":");
     if (idx !== -1) {
-      const key = line.slice(0, idx).trim().toLowerCase();
+      // Some registries pad keys with dots: "created............: 15.8.2017" (.fi, .no)
+      const key = line
+        .slice(0, idx)
+        .replace(/\.{2,}\s*$/, "")
+        .trim()
+        .toLowerCase();
       const value = line.slice(idx + 1).trim();
       if (!key) {
         lastKey = undefined;
