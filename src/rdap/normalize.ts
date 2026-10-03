@@ -33,7 +33,8 @@ export function normalizeRdap(
 
   // Nameservers: normalize host + IPs
   const nameservers: Nameserver[] | undefined = Array.isArray(doc.nameservers)
-    ? (doc.nameservers as RdapDoc[])
+    ? (doc.nameservers as unknown[])
+        .filter((ns): ns is RdapDoc => !!ns && typeof ns === "object")
         .map((ns) => {
           const host = (asString(ns.ldhName) ?? asString(ns.unicodeName) ?? "").toLowerCase();
           const ip = ns.ipAddresses as RdapDoc | undefined;
@@ -83,12 +84,14 @@ export function normalizeRdap(
     ? {
         enabled: !!secureDNS.delegationSigned,
         dsRecords: Array.isArray(secureDNS.dsData)
-          ? (secureDNS.dsData as Array<Record<string, unknown>>).map((d) => ({
-              keyTag: d.keyTag as number | undefined,
-              algorithm: d.algorithm as number | undefined,
-              digestType: d.digestType as number | undefined,
-              digest: d.digest as string | undefined,
-            }))
+          ? (secureDNS.dsData as unknown[])
+              .filter((d): d is Record<string, unknown> => !!d && typeof d === "object")
+              .map((d) => ({
+                keyTag: d.keyTag as number | undefined,
+                algorithm: d.algorithm as number | undefined,
+                digestType: d.digestType as number | undefined,
+                digest: d.digest as string | undefined,
+              }))
           : undefined,
       }
     : undefined;

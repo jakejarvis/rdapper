@@ -217,3 +217,18 @@ describe("WHOIS referral & includeRaw", () => {
     expect(Boolean(res.record?.rawWhois)).toBe(true);
   });
 });
+
+describe("RDAP responses that can't be read", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("names the read failure instead of claiming no RDAP server was listed", async () => {
+    const merge = await import("./rdap/merge");
+    vi.mocked(merge.fetchAndMergeRdapRelated).mockRejectedValueOnce(new Error("unexpected shape"));
+    const res = await lookup("example.com", { rdapOnly: true, timeoutMs: 200 });
+    expect(res.errorCode).toBe("rdap_unavailable");
+    expect(res.error).toContain("could not read the RDAP response: unexpected shape");
+    expect(res.error).not.toContain("no RDAP server listed");
+  });
+});

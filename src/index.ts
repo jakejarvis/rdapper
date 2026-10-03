@@ -108,9 +108,11 @@ async function runLookup(
     // suffix can be multi-label (e.g., com.br); this falls back to the last label.
     const bases = await getRdapBaseUrlsForPublicSuffix(tld, opts, ctx);
     const tried: string[] = [];
+    let readError: string | undefined;
     for (const base of bases) {
       throwIfAborted(opts?.signal);
       tried.push(base);
+      const attemptsBefore = ctx.attempts.length;
       try {
         const { json, notFound } = await fetchRdapDomain(domain, base, opts, ctx);
 
@@ -135,10 +137,14 @@ async function runLookup(
           !!opts?.includeRaw,
         );
         return { ok: true, record, attempts: ctx.attempts };
-      } catch {
+      } catch (err) {
         // Caller abort / deadline must stop the lookup, not fall through to the next phase
         throwIfAborted(opts?.signal);
-        // otherwise try next base (the failure is recorded in ctx.attempts)
+        // otherwise try next base. A failed fetch is recorded in ctx.attempts; a response that
+        // arrived but couldn't be read is not, so keep its error for the message below.
+        if (ctx.attempts.slice(attemptsBefore).every((a) => a.ok)) {
+          readError = err instanceof Error ? err.message : String(err);
+        }
       }
     }
     // Some TLDs are not in bootstrap yet; continue to WHOIS fallback unless rdapOnly
@@ -146,7 +152,9 @@ async function runLookup(
       const last = lastFailedAttempt(ctx, ["rdap", "rdap_bootstrap"]);
       const detail = last
         ? ` (${last.phase} ${last.server}: ${last.error})`
-        : " (no RDAP server listed in the IANA bootstrap)";
+        : readError
+          ? ` (could not read the RDAP response: ${readError})`
+          : " (no RDAP server listed in the IANA bootstrap)";
       return failure(
         ctx,
         "rdap_unavailable",

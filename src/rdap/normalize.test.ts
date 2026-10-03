@@ -607,3 +607,18 @@ test("normalizeRdap fills registrar gaps from the registrar's own copy", () => {
     city: "Meridian",
   });
 });
+
+test("normalizeRdap skips null nameservers and DS records", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      nameservers: [null, { ldhName: "NS1.EXAMPLE.COM" }],
+      secureDNS: { delegationSigned: true, dsData: [null] },
+    },
+    [],
+  );
+  expect(rec.nameservers).toEqual([{ host: "ns1.example.com" }]);
+  expect(rec.dnssec).toEqual({ enabled: true, dsRecords: [] });
+});
