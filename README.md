@@ -58,6 +58,7 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
   - Tries RDAP first if supported by the domain’s TLD; if unavailable or fails, falls back to WHOIS (unless toggled off).
   - Result is `{ ok: boolean, record?: DomainRecord, error?: string }`.
   - `domain` may be Unicode (`münchen.de`) and may carry surrounding whitespace or a trailing dot; the lowercase punycode form is what gets queried.
+  - `domain` must be a registrable name (`example.com`, `example.co.uk`), not a subdomain or a bare public suffix: `www.example.com` fails with `invalid_input` naming `example.com`, since the registry would otherwise answer "not registered". Use `toRegistrableDomain` to normalize hostnames and URLs first.
 - `toRegistrableDomain(input, options?) => string | null`
   - Normalizes a domain or URL to its registrable domain (eTLD+1).
   - Returns the registrable domain string, or `null` for IPs/invalid input; [options](https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts) are forwarded to `tldts` (e.g., `allowPrivateDomains`).
@@ -67,7 +68,7 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
 - `finalizeContact(contact, redactedHint?) => Contact`
   - Cleans a contact: drops placeholder values (recording them in `redactedFields`), sets `privacyService`, resolves `country`/`countryCode`, and sets `redacted`. Safe to re-run on an already-cleaned contact, e.g. to upgrade contacts stored by an older version.
 - `isPrivacyContact(contact) => boolean`
-  - True when the contact's name/organization is a privacy service or was redacted.
+  - True when the contact hides who it is: a privacy service is named, or something was withheld and no name or organization is left.
 - `normalizeEppStatus(status) => string`
   - Maps a status in either spelling to its EPP code (`"client transfer prohibited"` → `"clientTransferProhibited"`, RDAP `"active"` → `"ok"`), leaving other values as they are. Useful for upgrading statuses stored by an older version.
 
@@ -469,6 +470,7 @@ interface LookupResult {
 - `rate_limited`: the server throttled the query (RDAP `429`, or a short WHOIS notice such as `WHOIS LIMIT EXCEEDED`). Retrying later may work.
 - `blocked`: a WHOIS server refuses this client outright (e.g. `.ch`: "Requests of this client are not permitted"). Retrying will not help.
 - `unparseable`: WHOIS replied with text that is neither an availability notice nor a domain record (no registrar, dates, nameservers, statuses or contacts). It is reported as a failure rather than a "registered" record.
+- `rdap_unavailable`: with `rdapOnly`, the TLD has no RDAP server. When RDAP servers were tried and failed, the failure's own code is reported (`rate_limited`, `timeout`, `http_error`, `connect_failed`, or `unparseable` for a response that couldn't be read), with `errorPhase`/`errorServer` pointing at it.
 
 `retryAfterMs` carries an RDAP `Retry-After` header (on `429` or `503`, as seconds or an HTTP date). It is set on the matching entry in `attempts`, and on the top-level result only when that RDAP attempt is the terminal failure, as with `rdapOnly`. Normally an RDAP failure falls through to WHOIS, so the value stays in `attempts`. The value is passed through as sent and is not capped, so clamp it before using it as a delay.
 
@@ -585,7 +587,7 @@ interface DomainRecord {
     >; // fields that were redacted (and are therefore absent)
     privacyService?: boolean; // name/organization is a privacy/proxy service (text kept), not a redaction notice
   }>;
-  privacyEnabled?: boolean; // coarse: some registrant data was redacted or is behind a privacy service (name heuristics or RFC 9537 redactions); see the registrant contact's redactedFields/privacyService for which fields
+  privacyEnabled?: boolean; // the registrant's identity is hidden: a privacy service, or nothing identifying left after redaction; see the registrant contact's redactedFields for which fields
   redactions?: Array<{
     name: string; // e.g. "Registrant Email"
     prePath?: string;

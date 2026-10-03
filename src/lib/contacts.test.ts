@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { finalizeContact, mergeContacts, redactionFields } from "./contacts";
+import { finalizeContact, isPrivacyContact, mergeContacts, redactionFields } from "./contacts";
 import { isPlaceholderValue, isPrivacyName } from "./privacy";
 import * as api from "../index";
 
@@ -196,4 +196,29 @@ test("mergeContacts keeps distinct parties of the same role apart", () => {
   const r = finalizeContact({ type: "registrant", name: "Alice" });
   expect(mergeContacts([a, b, r])).toHaveLength(3);
   expect(mergeContacts([])).toBeUndefined();
+});
+
+test("isPrivacyContact means the registrant's identity is hidden", () => {
+  // A visible organization identifies the registrant despite a redacted name and email
+  expect(
+    isPrivacyContact(
+      finalizeContact({
+        type: "registrant",
+        name: "REDACTED FOR PRIVACY",
+        organization: "Google LLC",
+        email: "REDACTED",
+      }),
+    ),
+  ).toBe(false);
+  // Nothing identifying left after redaction
+  expect(
+    isPrivacyContact(finalizeContact({ type: "registrant", email: "REDACTED", country: "US" })),
+  ).toBe(true);
+  // A privacy service, named
+  expect(
+    isPrivacyContact(finalizeContact({ type: "registrant", organization: "Privacy Protect, LLC" })),
+  ).toBe(true);
+  // An unredacted contact, or none at all
+  expect(isPrivacyContact(finalizeContact({ type: "registrant", name: "Jane Doe" }))).toBe(false);
+  expect(isPrivacyContact(undefined)).toBe(false);
 });

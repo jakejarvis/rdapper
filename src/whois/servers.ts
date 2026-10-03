@@ -49,3 +49,14 @@ export const WHOIS_TLD_EXCEPTIONS = {
   nu: "whois.iis.nu",
   "xn--p1ai": "whois.tcinet.ru", // .рф
 } as Record<string, string>;
+
+/**
+ * Time zones of registries whose WHOIS prints local times without a zone, each confirmed by
+ * comparing its WHOIS dates with its RDAP ones. Other registries' zone-less times are read as UTC.
+ */
+export const WHOIS_TIME_ZONES: Record<string, string> = {
+  cz: "Europe/Prague",
+  no: "Europe/Oslo",
+  pl: "Europe/Warsaw",
+  th: "Asia/Bangkok",
+};

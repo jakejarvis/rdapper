@@ -1,9 +1,10 @@
-import { toISOFromTokens } from "../lib/dates";
+import { type ParseDateOptions, toISOFromTokens } from "../lib/dates";
 import { finalizeContact, isPrivacyContact } from "../lib/contacts";
 import { mergeNameservers } from "../lib/nameservers";
 import { isEppStatus, normalizeEppStatus } from "../lib/status";
 import { parseKeyValueBlocks, parseKeyValueLines, uniqBy } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
+import { WHOIS_TIME_ZONES } from "./servers";
 
 // Phrases registries use to say a name is not registered. They also turn up in the remarks and
 // footers of real records ("only available for registration under certain conditions" on .ir,
@@ -76,13 +77,15 @@ export function normalizeWhois(
   // block beats a higher-priority key in a later one: FRED registries (.cz, .mk) repeat "created"
   // in every contact and nameserver block. The whole-reply map covers a header whose value sits
   // past a blank line.
+  // Some registries print local times without a zone (WHOIS_TIME_ZONES)
+  const dates = { timeZone: WHOIS_TIME_ZONES[tld.split(".").pop() ?? ""] };
   const dateOf = (keys: string[], latest = false) =>
-    firstDate(blocks, keys, latest) ?? firstDate([map], keys, latest);
+    firstDate(blocks, keys, dates, latest) ?? firstDate([map], keys, dates, latest);
   // .gg/.je list dates as sentences under "Relevant dates:", e.g. "Registered on 28th December 2018 at 05:54:43.861"
   const relevantDate = (label: RegExp) =>
-    toISOFromTokens(map["relevant dates"]?.find((l) => label.test(l))?.replace(label, ""));
+    toISOFromTokens(map["relevant dates"]?.find((l) => label.test(l))?.replace(label, ""), dates);
   // .tw writes "Record created on 2000-02-02 15:06:48 (UTC+8)", with no key separator
-  const recordDate = (label: RegExp) => toISOFromTokens(whoisText.match(label)?.[1]);
+  const recordDate = (label: RegExp) => toISOFromTokens(whoisText.match(label)?.[1], dates);
   const creationDate =
     dateOf([
       "creation date",
@@ -254,7 +257,7 @@ export function normalizeWhois(
     statuses,
     creationDate,
     updatedDate,
-    expirationDate: expirationDate ?? toISOFromTokens(okUntil),
+    expirationDate: expirationDate ?? toISOFromTokens(okUntil, dates),
     deletionDate: undefined,
     transferLock,
     dnssec,
@@ -372,11 +375,14 @@ function parseStatusLine(line: string): string[] {
 function firstDate(
   blocks: Array<Record<string, string[]>>,
   keys: string[],
+  opts: ParseDateOptions,
   latest = false,
 ): string | undefined {
   for (const block of blocks) {
     for (const k of keys) {
-      const dates = (block[k] ?? []).map((v) => toISOFromTokens(v)).filter((d) => d !== undefined);
+      const dates = (block[k] ?? [])
+        .map((v) => toISOFromTokens(v, opts))
+        .filter((d) => d !== undefined);
       if (dates.length) return latest ? dates.sort().at(-1) : dates[0];
     }
   }

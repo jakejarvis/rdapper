@@ -91,8 +91,41 @@ test("normalizeRdap derives privacyEnabled from registrant keywords", () => {
       },
     ],
   };
+  // The organization still identifies the registrant
   const rec = normalizeRdap("example.com", "com", rdap, ["https://rdap.example/"]);
-  expect(rec.privacyEnabled).toBe(true);
+  expect(rec.privacyEnabled).toBeUndefined();
+  // With only a redacted name, nothing identifies it
+  const hidden = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrant"],
+          vcardArray: ["vcard", [["fn", {}, "text", "REDACTED FOR PRIVACY"]]],
+        },
+      ],
+    },
+    [],
+  );
+  expect(hidden.privacyEnabled).toBe(true);
+  // A privacy service counts even though it is named
+  const proxy = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrant"],
+          vcardArray: ["vcard", [["org", {}, "text", "Domains By Proxy, LLC"]]],
+        },
+      ],
+    },
+    [],
+  );
+  expect(proxy.privacyEnabled).toBe(true);
 });
 
 test("normalizeRdap detects transfer lock with spaced status", () => {
@@ -182,7 +215,25 @@ test("normalizeRdap parses RFC 9537 redacted array and flags privacy", () => {
       reason: "Server policy",
     }),
   ]);
-  expect(rec.privacyEnabled).toBe(true);
+  // An email redaction doesn't hide who the registrant is
+  expect(rec.privacyEnabled).toBeUndefined();
+  // Removing the registrant's name with no registrant entity left does
+  const removed = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      redacted: [
+        {
+          name: { description: "Registrant Name" },
+          prePath: "$.entities[?(@.roles[0]=='registrant')].vcardArray[1][?(@[0]=='fn')]",
+          method: "removal",
+        },
+      ],
+    },
+    [],
+  );
+  expect(removed.privacyEnabled).toBe(true);
 });
 
 test("normalizeRdap separates fax from tel and keeps multiple emails", () => {

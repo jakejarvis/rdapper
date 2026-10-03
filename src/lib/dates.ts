@@ -42,17 +42,36 @@ const FORMATS: Array<[RegExp, (m: RegExpMatchArray) => number | undefined]> = [
 // Zone names the formats above and the native parser don't know: "(JST)" (.jp), "CLST"/"CLT" (.cl)
 const ZONE_OFFSETS: Record<string, string> = { JST: "+0900", CLT: "-0400", CLST: "-0300" };
 
-export function toISO(dateLike: string | number | Date | undefined | null): string | undefined {
+export interface ParseDateOptions {
+  /**
+   * IANA time zone for values that carry none ("Europe/Prague" for .cz, whose WHOIS prints local
+   * times). Without it such values are read as UTC.
+   */
+  timeZone?: string;
+}
+
+export function toISO(
+  dateLike: string | number | Date | undefined | null,
+  opts?: ParseDateOptions,
+): string | undefined {
   if (dateLike == null) return undefined;
   if (dateLike instanceof Date) return toIsoFromDate(dateLike);
   if (typeof dateLike === "number") return toIsoFromDate(new Date(dateLike));
   const raw = normalizeZone(String(dateLike).trim());
   if (!raw) return undefined;
+  const ms = parseAsUtc(raw);
+  if (ms === undefined) return undefined;
+  const local = opts?.timeZone && !hasZone(raw);
+  return toIsoFromDate(new Date(local ? fromZoneWallTime(ms, opts.timeZone as string) : ms));
+}
+
+/** Epoch milliseconds of a date string, reading a value without a zone as UTC. */
+function parseAsUtc(raw: string): number | undefined {
   for (const [re, build] of FORMATS) {
     const m = raw.match(re);
     if (!m) continue;
     const ms = build(m);
-    if (ms !== undefined) return toIsoFromDate(new Date(ms));
+    if (ms !== undefined) return ms;
   }
   // Anything else goes to the native parser (RFC 2822, "Tue Jan 01 2000", ...). It accepts any
   // word next to a year ("Before 2001" on .ro, "since 1999"), so require a month name or a
@@ -61,13 +80,55 @@ export function toISO(dateLike: string | number | Date | undefined | null): stri
   if (!/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(raw) && !/\d\D+\d/.test(raw)) {
     return undefined;
   }
-  // A value without a zone would be read as local time, so pin it to UTC. A numeric offset
-  // counts only after a time of day: in "Aug-1996" the "-1996" is a year.
-  const hasZone =
+  // A value without a zone would be read as local time, so pin it to UTC
+  const native = new Date(hasZone(raw) ? raw : `${raw} UTC`);
+  return Number.isNaN(native.getTime()) ? undefined : native.getTime();
+}
+
+/** Whether a date string names its zone. A numeric offset counts only after a time of day: in "Aug-1996" the "-1996" is a year. */
+function hasZone(raw: string): boolean {
+  return (
     /\b(?:UTC?|GMT|[ECMP][SD]T)\b/i.test(raw) ||
-    /\d:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
-  const native = new Date(hasZone ? raw : `${raw} UTC`);
-  return Number.isNaN(native.getTime()) ? undefined : toIsoFromDate(native);
+    /\d:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+  );
+}
+
+const zoneFormats = new Map<string, Intl.DateTimeFormat>();
+
+/** A time zone's UTC offset in milliseconds at an instant, from the wall-clock time there. */
+function zoneOffsetMs(timeZone: string, instant: number): number {
+  let format = zoneFormats.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    });
+    zoneFormats.set(timeZone, format);
+  }
+  const parts = Object.fromEntries(
+    format.formatToParts(new Date(instant)).map((p) => [p.type, Number(p.value)]),
+  );
+  const wall = Date.UTC(
+    parts.year ?? 0,
+    (parts.month ?? 1) - 1,
+    parts.day ?? 1,
+    parts.hour ?? 0,
+    parts.minute ?? 0,
+    parts.second ?? 0,
+  );
+  return wall - Math.floor(instant / 1000) * 1000;
+}
+
+/** The instant at which a time zone's clocks show a wall-clock time (given as if it were UTC). */
+function fromZoneWallTime(wallMs: number, timeZone: string): number {
+  // The offset at the guess, not at the wall time, settles daylight-saving changes
+  return wallMs - zoneOffsetMs(timeZone, wallMs - zoneOffsetMs(timeZone, wallMs));
 }
 
 /**
@@ -75,13 +136,16 @@ export function toISO(dateLike: string | number | Date | undefined | null): stri
  * (e.g. "0-UANIC 20111004161638", "OK-UNTIL 20261004161638"): if the whole string doesn't parse,
  * try each whitespace-separated token that looks like a date.
  */
-export function toISOFromTokens(value: string | undefined | null): string | undefined {
+export function toISOFromTokens(
+  value: string | undefined | null,
+  opts?: ParseDateOptions,
+): string | undefined {
   if (!value) return undefined;
-  const whole = toISO(value);
+  const whole = toISO(value, opts);
   if (whole) return whole;
   for (const token of value.trim().split(/\s+/)) {
     if (!/^\d[\d\-/:.TZ+]{5,}$/.test(token)) continue;
-    const iso = toISO(token);
+    const iso = toISO(token, opts);
     if (iso) return iso;
   }
   return undefined;

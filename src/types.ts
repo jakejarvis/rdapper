@@ -245,10 +245,10 @@ export interface DomainRecord {
   /** Contacts (registrant, admin, tech, billing, abuse, etc.) */
   contacts?: Contact[];
   /**
-   * Coarse signal that some registrant data was redacted or is behind a privacy service, from
-   * name/organization phrases or RFC 9537 registrant redactions. It does not mean the registrant's
-   * identity is hidden (an email-only redaction sets it); check the registrant contact's
-   * `redactedFields` and `privacyService` for precision.
+   * True when the registrant's identity is hidden: a privacy or proxy service is named, or
+   * something was withheld and neither a name nor an organization is left. A redacted email or
+   * phone beside a visible organization doesn't set it; the registrant contact's `redactedFields`
+   * says exactly which fields were withheld.
    */
   privacyEnabled?: boolean;
   /** RFC 9537 redaction metadata reported by RDAP, if any */
@@ -479,18 +479,21 @@ export interface LookupResult {
 /**
  * Machine-readable reason a lookup (or one attempt within it) failed.
  *
- * - `invalid_input`: the input does not look like a domain name, or the options conflict
- *   (`rdapOnly` with `whoisOnly`)
+ * - `invalid_input`: the input does not look like a domain name or is not a registrable one (a
+ *   subdomain such as www.example.com, or a public suffix), or the options conflict (`rdapOnly`
+ *   with `whoisOnly`)
  * - `invalid_tld`: the TLD is not valid
  * - `timeout`: any timeout, including the overall `deadlineMs`
  * - `aborted`: the caller's `AbortSignal` fired
  * - `connect_failed`: network-level failure (ECONNREFUSED, ECONNRESET, ENOTFOUND, ...)
  * - `http_error`: RDAP responded with a non-2xx status other than 404
- * - `rdap_unavailable`: `rdapOnly` was set and no RDAP server worked
+ * - `rdap_unavailable`: `rdapOnly` was set and the TLD has no RDAP server (when servers were tried,
+ *   their failure's code is reported instead)
  * - `no_server`: IANA answered but no WHOIS server exists for the TLD
  * - `rate_limited`: the server throttled the query (RDAP 429, or a WHOIS throttle notice)
  * - `blocked`: the WHOIS server refuses this client outright (retrying will not help)
- * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record
+ * - `unparseable`: WHOIS replied with text that is neither an availability notice nor a record,
+ *   or (with `rdapOnly`) an RDAP response could not be read
  * - `no_data`: a WHOIS server accepted the connection but closed it without sending anything
  * - `unsupported_runtime`: WHOIS needs `node:net`, which this runtime lacks
  * - `unknown`: any failure not covered above

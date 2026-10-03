@@ -173,8 +173,16 @@ Registrar URL: http://www.registrar.test
 Registrant Name: REDACTED FOR PRIVACY
 Registrant Organization: Example Org
 `;
+  // The organization still identifies the registrant
   const rec = normalizeWhois("example.com", "com", text, "whois.verisign-grs.com");
-  expect(rec.privacyEnabled).toBe(true);
+  expect(rec.privacyEnabled).toBeUndefined();
+  const hidden = normalizeWhois(
+    "example.com",
+    "com",
+    "Domain Name: EXAMPLE.COM\nRegistrant Name: REDACTED FOR PRIVACY\nRegistrant Email: Select Request Email Form at https://example.test\n",
+    "whois.registrar.test",
+  );
+  expect(hidden.privacyEnabled).toBe(true);
 });
 
 test("isAvailableByWhois correctly identifies availability patterns", () => {
@@ -665,4 +673,18 @@ test("WHOIS contact names skip registry handles and placeholder notices", () => 
   expect(
     registrant("Registrant:\n\tNot shown, please visit www.dnsbelgium.be for webbased whois.\n"),
   ).toMatchObject({ redactedFields: ["name"], redacted: true });
+});
+
+test("WHOIS local times from registries in WHOIS_TIME_ZONES match their RDAP values", () => {
+  // Excerpt of whois.nic.cz for nic.cz; RDAP gives 1997-10-30T00:00:00Z and 2027-03-14T23:00:00Z
+  const cz = "domain:       nic.cz\nregistered:   30.10.1997 01:00:00\nexpire:       15.03.2027\n";
+  expect(normalizeWhois("nic.cz", "cz", cz, "whois.nic.cz")).toMatchObject({
+    creationDate: "1997-10-30T00:00:00Z",
+    expirationDate: "2027-03-14T23:00:00Z",
+  });
+  // Unlisted registries keep reading zone-less times as UTC
+  expect(
+    normalizeWhois("x.mk", "mk", "domain: x.mk\nregistered: 22.05.2008 14:00:00\n", undefined)
+      .creationDate,
+  ).toBe("2008-05-22T14:00:00Z");
 });

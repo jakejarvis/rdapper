@@ -154,12 +154,15 @@ export function finalizeContact(
   return contact;
 }
 
-/** True when a registrant contact's name/organization is a privacy service or was redacted. */
+/**
+ * True when a registrant contact hides who the registrant is: a privacy or proxy service is
+ * named, or something was withheld and neither a name nor an organization is left. A redacted
+ * email or phone beside a visible organization ("Google LLC") doesn't count.
+ */
 export function isPrivacyContact(contact: Contact | undefined): boolean {
-  return (
-    !!contact?.privacyService ||
-    !!contact?.redactedFields?.some((f) => f === "name" || f === "organization")
-  );
+  if (!contact) return false;
+  if (contact.privacyService) return true;
+  return !contact.name && !contact.organization && !!contact.redacted;
 }
 
 const IDENTITY_FIELDS = ["name", "organization", "email"] as const;

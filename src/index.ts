@@ -20,6 +20,22 @@ import { normalizeWhois } from "./whois/normalize";
 import { looksEmptyWhois } from "./whois/throttle";
 import { collectWhoisReferralChain } from "./whois/referral";
 
+/**
+ * The registrable name a domain belongs to ("example.com" for www.example.com), undefined for a
+ * public suffix itself. Sub-registry names (google.uk.com) are registrable; under a TLD missing
+ * from the Public Suffix List the input is taken as is.
+ */
+function registrableNameOf(domain: string): string | undefined {
+  const sub = getSubRegistrySuffix(domain);
+  if (sub)
+    return domain
+      .split(".")
+      .slice(-(sub.split(".").length + 1))
+      .join(".");
+  const parts = getDomainParts(domain);
+  return parts.isIcann ? (parts.domain ?? undefined) : domain;
+}
+
 function failure(
   ctx: LookupContext,
   errorCode: LookupErrorCode,
@@ -99,6 +115,19 @@ async function runLookup(
     return failure(ctx, "invalid_input", "Input does not look like a domain");
   }
 
+  // Only a registrable name has a registration: the registry would answer "not registered" for
+  // www.example.com, which reads as available. Say which name to look up instead.
+  const registrable = registrableNameOf(domain);
+  if (registrable !== domain) {
+    return failure(
+      ctx,
+      "invalid_input",
+      registrable
+        ? `"${domain}" is not a registrable domain; look up "${registrable}"`
+        : `"${domain}" is a public suffix, not a registrable domain`,
+    );
+  }
+
   // Names under a sub-registry (e.g. google.uk.com) are routed by that suffix, not the ICANN one
   const tld = getSubRegistrySuffix(domain) ?? getDomainParts(domain).publicSuffix;
   if (!tld) {
@@ -152,17 +181,29 @@ async function runLookup(
     }
     // Some TLDs are not in bootstrap yet; continue to WHOIS fallback unless rdapOnly
     if (opts?.rdapOnly) {
+      // Report why RDAP failed (rate_limited, timeout, ...) so callers can tell a transient
+      // failure from a TLD without RDAP
       const last = lastFailedAttempt(ctx, ["rdap", "rdap_bootstrap"]);
-      const detail = last
-        ? ` (${last.phase} ${last.server}: ${last.error})`
-        : readError
-          ? ` (could not read the RDAP response: ${readError})`
-          : " (no RDAP server listed in the IANA bootstrap)";
+      if (last) {
+        return failure(
+          ctx,
+          last.errorCode ?? "unknown",
+          `RDAP lookup failed for TLD '${tld}' (${last.phase} ${last.server}: ${last.error})`,
+          { phase: last.phase, server: last.server, retryAfterMs: last.retryAfterMs },
+        );
+      }
+      if (readError) {
+        return failure(
+          ctx,
+          "unparseable",
+          `RDAP response for TLD '${tld}' could not be read (${readError})`,
+          { phase: "rdap", server: tried.at(-1) },
+        );
+      }
       return failure(
         ctx,
         "rdap_unavailable",
-        `RDAP not available or failed for TLD '${tld}'${detail}. Many TLDs do not publish RDAP; try WHOIS fallback (omit rdapOnly).`,
-        { phase: last?.phase, server: last?.server, retryAfterMs: last?.retryAfterMs },
+        `RDAP not available for TLD '${tld}' (no RDAP server listed in the IANA bootstrap). Many TLDs do not publish RDAP; try WHOIS fallback (omit rdapOnly).`,
       );
     }
   }

@@ -129,3 +129,17 @@ test("toISO refuses qualified dates", () => {
   expect(toISO("before Aug-1996")).toBeUndefined(); // .uk
   expect(toISO("Before 2001")).toBeUndefined(); // .ro
 });
+
+test("toISO reads zone-less values in a given time zone", () => {
+  // Each pair checked against the registry's RDAP value
+  expect(toISO("30.10.1997 01:00:00", { timeZone: "Europe/Prague" })).toBe("1997-10-30T00:00:00Z");
+  expect(toISO("2015.04.20 11:41:34", { timeZone: "Europe/Warsaw" })).toBe("2015-04-20T09:41:34Z"); // CEST
+  expect(toISO("1998.01.26 12:00:00", { timeZone: "Europe/Warsaw" })).toBe("1998-01-26T11:00:00Z"); // CET
+  expect(toISO("1999-11-15", { timeZone: "Europe/Oslo" })).toBe("1999-11-14T23:00:00Z");
+  expect(toISO("30 Mar 1999", { timeZone: "Asia/Bangkok" })).toBe("1999-03-29T17:00:00Z");
+  // An explicit zone wins
+  expect(toISO("2024-01-01T00:00:00Z", { timeZone: "Europe/Prague" })).toBe("2024-01-01T00:00:00Z");
+  expect(toISO("2024-01-01 00:00:00 +0200", { timeZone: "Europe/Prague" })).toBe(
+    "2023-12-31T22:00:00Z",
+  );
+});

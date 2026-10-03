@@ -119,6 +119,21 @@ describe("lookup orchestration", () => {
     );
   });
 
+  it("rejects subdomains and bare public suffixes, naming the registrable domain", async () => {
+    const sub = await lookup("www.example.com", { timeoutMs: 200 });
+    expect(sub).toMatchObject({ ok: false, errorCode: "invalid_input" });
+    expect(sub.error).toContain('look up "example.com"');
+    const suffix = await lookup("co.uk", { timeoutMs: 200 });
+    expect(suffix).toMatchObject({ ok: false, errorCode: "invalid_input" });
+    expect(suffix.error).toContain("public suffix");
+    expect(vi.mocked(rdapClient.fetchRdapDomain)).not.toHaveBeenCalled();
+    // Registrable names, including sub-registry ones and unknown TLDs, still go through
+    for (const name of ["example.co.uk", "google.uk.com", "uk.com", "example.notarealtld"]) {
+      const res = await lookup(name, { timeoutMs: 200 });
+      expect(res.errorCode, name).not.toBe("invalid_input");
+    }
+  });
+
   it("rejects rdapOnly together with whoisOnly without querying anything", async () => {
     const res = await lookup("example.com", { rdapOnly: true, whoisOnly: true, timeoutMs: 200 });
     expect(res.ok).toBe(false);
@@ -235,8 +250,8 @@ describe("RDAP responses that can't be read", () => {
     const merge = await import("./rdap/merge");
     vi.mocked(merge.fetchAndMergeRdapRelated).mockRejectedValueOnce(new Error("unexpected shape"));
     const res = await lookup("example.com", { rdapOnly: true, timeoutMs: 200 });
-    expect(res.errorCode).toBe("rdap_unavailable");
-    expect(res.error).toContain("could not read the RDAP response: unexpected shape");
+    expect(res.errorCode).toBe("unparseable");
+    expect(res.error).toContain("could not be read (unexpected shape)");
     expect(res.error).not.toContain("no RDAP server listed");
   });
 });

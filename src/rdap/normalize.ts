@@ -58,11 +58,16 @@ export function normalizeRdap(
   const resellerContact = contacts?.find((c) => c.type === "reseller");
   const reseller = resellerContact?.organization || resellerContact?.name || undefined;
 
-  // Derive privacy flag from registrant name/org keywords or RFC 9537 registrant redactions
+  // Privacy: the registrant's identity is hidden, by its contact or, with no registrant entity
+  // left, by an RFC 9537 redaction that removed its name or organization
   const registrant = contacts?.find((c) => c.type === "registrant");
-  const privacyEnabled =
-    isPrivacyContact(registrant) ||
-    !!redactions?.some((r) => redactionTargetsRole(r, "registrant"));
+  const privacyEnabled = registrant
+    ? isPrivacyContact(registrant)
+    : !!redactions?.some(
+        (r) =>
+          redactionTargetsRole(r, "registrant") &&
+          redactionFields(r.name, r.prePath).some((f) => f === "name" || f === "organization"),
+      );
 
   // RDAP spells EPP statuses as words ("client transfer prohibited"): report the EPP code, as
   // WHOIS does, and keep the original in raw. Merged registry and registrar documents may list

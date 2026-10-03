@@ -100,7 +100,7 @@ describe("rdapOnly rate limiting", () => {
       customFetch,
       rdapOnly: true,
     });
-    expect(res.errorCode).toBe("rdap_unavailable");
+    expect(res.errorCode).toBe("http_error");
     expect(res.retryAfterMs).toBe(5_000);
   });
 
@@ -221,7 +221,7 @@ describe("error reporting", () => {
     expect(vi.mocked(whoisQuery)).toHaveBeenCalledTimes(1);
   });
 
-  it("reports rdap_unavailable with the last RDAP failure", async () => {
+  it("reports the last RDAP failure's own code", async () => {
     const customFetch: FetchLike = vi.fn(async () => new Response("down", { status: 500 }));
     const res = await lookup("example.com", {
       rdapOnly: true,
@@ -230,7 +230,7 @@ describe("error reporting", () => {
     });
     expect(res).toMatchObject({
       ok: false,
-      errorCode: "rdap_unavailable",
+      errorCode: "http_error",
       errorPhase: "rdap",
       errorServer: "https://rdap-b.example/",
     });
@@ -358,5 +358,30 @@ describe("bootstrap AbortError not caused by the caller", () => {
     });
     expect(res.ok, res.error).toBe(true);
     expect(res.record?.source).toBe("whois");
+  });
+});
+
+describe("rdapOnly failure codes", () => {
+  it("reports a rate limit as rate_limited, not rdap_unavailable", async () => {
+    const customFetch: FetchLike = vi.fn(
+      async () => new Response("slow down", { status: 429, headers: { "retry-after": "30" } }),
+    );
+    const res = await lookup("example.com", {
+      customBootstrapData: bootstrap,
+      customFetch,
+      rdapOnly: true,
+    });
+    expect(res).toMatchObject({ ok: false, errorCode: "rate_limited", retryAfterMs: 30_000 });
+  });
+
+  it("keeps rdap_unavailable for a TLD without RDAP", async () => {
+    const customFetch: FetchLike = vi.fn(async () => rdapOk());
+    const res = await lookup("example.zz", {
+      customBootstrapData: bootstrap,
+      customFetch,
+      rdapOnly: true,
+    });
+    expect(res.errorCode).toBe("rdap_unavailable");
+    expect(customFetch).not.toHaveBeenCalled();
   });
 });
