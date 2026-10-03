@@ -480,4 +480,12 @@ describe("getRdapBaseUrlsForPublicSuffix", () => {
     expect(await getRdapBaseUrlsForPublicSuffix("co.uk", { customFetch })).toEqual([]);
     expect(customFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("routes sub-registry suffixes to their operator without loading the bootstrap", async () => {
+    const customFetch = okFetch();
+    expect(await getRdapBaseUrlsForPublicSuffix("uk.com", { customFetch })).toEqual([
+      "https://rdap.centralnic.com/uk.com/",
+    ]);
+    expect(customFetch).not.toHaveBeenCalled();
+  });
 });

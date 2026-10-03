@@ -1,6 +1,7 @@
 import { linkSignals, throwIfAborted } from "./lib/async";
 import { getDomainParts, isLikelyDomain } from "./lib/domain";
 import { classifyError, RdapperError } from "./lib/errors";
+import { getSubRegistrySuffix } from "./lib/subregistries";
 import { attemptForError, type LookupContext } from "./lib/trace";
 import { getRdapBaseUrlsForPublicSuffix } from "./rdap/bootstrap";
 import { fetchRdapDomain } from "./rdap/client";
@@ -93,7 +94,8 @@ async function runLookup(
     return failure(ctx, "invalid_input", "Input does not look like a domain");
   }
 
-  const { publicSuffix: tld } = getDomainParts(domain);
+  // Names under a sub-registry (e.g. google.uk.com) are routed by that suffix, not the ICANN one
+  const tld = getSubRegistrySuffix(domain) ?? getDomainParts(domain).publicSuffix;
   if (!tld) {
     return failure(ctx, "invalid_tld", "Invalid TLD");
   }

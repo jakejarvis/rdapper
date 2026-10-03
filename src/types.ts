@@ -193,7 +193,7 @@ export interface StatusEvent {
 export interface DomainRecord {
   /** Domain name (Unicode form when available, otherwise as queried) */
   domain: string;
-  /** Top-level domain the lookup was routed by (e.g., "com") */
+  /** Public suffix the lookup was routed by (e.g., "com", "co.uk", or "uk.com" for google.uk.com) */
   tld: string;
   /** Whether the domain is registered */
   isRegistered: boolean;

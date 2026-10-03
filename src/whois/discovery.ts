@@ -1,5 +1,6 @@
 import { throwIfAborted } from "../lib/async";
 import { classifyError } from "../lib/errors";
+import { SUB_REGISTRIES } from "../lib/subregistries";
 import { type LookupContext, traced } from "../lib/trace";
 import type { LookupErrorCode, LookupOptions } from "../types";
 import { whoisQuery } from "./client";
@@ -84,6 +85,10 @@ export async function discoverWhoisServer(
   // 1) Explicit hint override
   const hint = options?.whoisHints?.[key];
   if (hint) return { server: normalizeServer(hint) };
+
+  // 1b) Sub-registry suffixes (e.g. uk.com), which IANA knows nothing about
+  const subRegistry = SUB_REGISTRIES[key];
+  if (subRegistry) return { server: subRegistry.whois };
 
   // 2) IANA WHOIS authoritative discovery over TCP 43
   const out: WhoisDiscovery = {};

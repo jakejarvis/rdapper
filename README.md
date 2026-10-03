@@ -500,7 +500,7 @@ The exact presence of fields depends on registry/registrar data and whether RDAP
 ```ts
 interface DomainRecord {
   domain: string; // normalized name (unicode when available)
-  tld: string; // public suffix (can be multi-label, e.g., "com", "co.uk")
+  tld: string; // public suffix the lookup was routed by (e.g., "com", "co.uk", or "uk.com" for google.uk.com)
   isRegistered: boolean; // availability heuristic (WHOIS) or true (RDAP)
   isIDN?: boolean; // uses punycode labels (xn--)
   unicodeName?: string; // RDAP unicodeName when provided
@@ -618,12 +618,12 @@ interface DomainRecord {
 ## How it works
 
 - RDAP
-  - Discovers base URLs for the TLD via IANA’s RDAP bootstrap JSON.
+  - Discovers base URLs for the TLD via IANA’s RDAP bootstrap JSON. Names under CentralNic’s sub-registries (`uk.com`, `us.com`, `com.de`, …) go to CentralNic’s RDAP instead.
   - Tries each base until one responds successfully; parses standard RDAP domain JSON.
   - Optionally follows related/entity links to registrar RDAP resources and merges results (bounded by hop limits).
   - Normalizes registrar (from `entities`), contacts (vCard), nameservers (`ipAddresses`), events (created/changed/expiration), statuses, and DNSSEC (`secureDNS`).
 - WHOIS
-  - Discovers the authoritative TLD WHOIS via `whois.iana.org` (TCP 43), with curated exceptions for tricky zones and public SLDs.
+  - Discovers the authoritative TLD WHOIS via `whois.iana.org` (TCP 43), with curated exceptions for tricky zones; CentralNic sub-registries use CentralNic’s WHOIS.
   - Queries the TLD WHOIS and follows registrar referrals recursively up to `maxWhoisReferralHops` (unless disabled).
   - Normalizes common key/value variants across gTLD/ccTLD formats (dates, statuses, nameservers, contacts). Availability is inferred from common phrases (best‑effort heuristic).
 
@@ -655,7 +655,7 @@ Project layout:
 - Some TLDs provide no RDAP service; `rdapOnly: true` will fail for them.
 - Registries may throttle or block WHOIS; respect rate limits and usage policies.
 - Field presence depends on source and privacy policies (e.g., redaction/withholding).
-- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). You can pass options through to `tldts` via `toRegistrableDomain`/`getDomainParts`/`getDomainTld` (e.g., `allowPrivateDomains`) to customize behavior. See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
+- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). You can pass options through to `tldts` via `toRegistrableDomain`/`getDomainParts`/`getDomainTld` (e.g., `allowPrivateDomains`) to customize behavior. `lookup()` additionally routes names under CentralNic’s sub-registries (e.g., `google.uk.com`) to CentralNic rather than the `.com` registry. See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
 
 ## License
 

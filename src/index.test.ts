@@ -56,6 +56,7 @@ vi.mock("./lib/domain.js", async () => {
 });
 
 import { lookup } from ".";
+import * as bootstrap from "./rdap/bootstrap";
 import * as rdapClient from "./rdap/client";
 import * as whoisClient from "./whois/client";
 import * as discovery from "./whois/discovery";
@@ -84,6 +85,24 @@ describe("lookup orchestration", () => {
     expect(res.ok, res.error).toBe(true);
     expect(res.record?.source).toBe("whois");
     expect(vi.mocked(whoisClient.whoisQuery)).toHaveBeenCalledOnce();
+  });
+
+  it("routes names under a sub-registry by that suffix (RDAP and WHOIS)", async () => {
+    const res = await lookup("google.uk.com", { timeoutMs: 200 });
+    expect(res.ok, res.error).toBe(true);
+    expect(res.record?.tld).toBe("uk.com");
+    expect(vi.mocked(bootstrap.getRdapBaseUrlsForPublicSuffix)).toHaveBeenCalledWith(
+      "uk.com",
+      expect.anything(),
+      expect.anything(),
+    );
+
+    await lookup("google.uk.com", { timeoutMs: 200, whoisOnly: true });
+    expect(vi.mocked(discovery.discoverWhoisServer)).toHaveBeenCalledWith(
+      "uk.com",
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it("respects whoisOnly to skip RDAP entirely", async () => {

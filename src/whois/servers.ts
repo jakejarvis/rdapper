@@ -48,19 +48,4 @@ export const WHOIS_TLD_EXCEPTIONS = {
   uk: "whois.nic.uk",
   nu: "whois.iis.nu",
   "xn--p1ai": "whois.tcinet.ru", // .рф
-
-  // CentralNic-operated public SLD zones (still WHOIS @ centralnic)
-  "uk.com": "whois.centralnic.com",
-  "uk.net": "whois.centralnic.com",
-  "gb.com": "whois.centralnic.com",
-  "gb.net": "whois.centralnic.com",
-  "eu.com": "whois.centralnic.com",
-  "us.com": "whois.centralnic.com",
-  "se.com": "whois.centralnic.com",
-  "de.com": "whois.centralnic.com",
-  "br.com": "whois.centralnic.com",
-  "ru.com": "whois.centralnic.com",
-  "cn.com": "whois.centralnic.com",
-  "sa.com": "whois.centralnic.com",
-  "co.com": "whois.centralnic.com",
 } as Record<string, string>;
