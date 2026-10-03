@@ -143,8 +143,9 @@ export function normalizeWhois(
   const registrar: RegistrarInfo | undefined = (() => {
     const name = anyValue(map, [
       "registrar",
-      "registrar name",
+      // Before "registrar name": .it's "Registrar" section has the handle under Name
       "registrar organization",
+      "registrar name",
       "registrar organization name", // .tr
       "sponsoring registrar",
       "organisation",
