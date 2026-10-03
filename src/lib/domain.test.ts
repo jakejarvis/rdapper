@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { getDomainParts, isLikelyDomain, toRegistrableDomain } from "./domain";
+import { getDomainParts, isLikelyDomain, toAsciiDomain, toRegistrableDomain } from "./domain";
 
 test("getDomainParts.tld basic", () => {
   expect(getDomainParts("example.com").publicSuffix).toBe("com");
@@ -24,4 +24,22 @@ test("toRegistrableDomain normalizes eTLD+1 and rejects non-ICANN", () => {
   expect(toRegistrableDomain("192.168.0.1")).toBeNull();
   expect(toRegistrableDomain("http://[::1]/")).toBeNull();
   expect(toRegistrableDomain("")).toBeNull();
+});
+
+test("toAsciiDomain normalizes whitespace, case, trailing dots, and Unicode", () => {
+  expect(toAsciiDomain("  Example.COM.\t")).toBe("example.com");
+  expect(toAsciiDomain("example.com\r")).toBe("example.com");
+  expect(toAsciiDomain("münchen.de")).toBe("xn--mnchen-3ya.de");
+  expect(toAsciiDomain("例え.jp")).toBe("xn--r8jz45g.jp");
+  expect(toAsciiDomain("https://example.com/")).toBeUndefined();
+  expect(toAsciiDomain("example.com:43")).toBeUndefined();
+  expect(toAsciiDomain("ex ample.com")).toBeUndefined();
+});
+
+test("isLikelyDomain accepts Unicode and trailing dots, rejects IPs", () => {
+  expect(isLikelyDomain("münchen.de")).toBe(true);
+  expect(isLikelyDomain("example.com.")).toBe(true);
+  expect(isLikelyDomain("xn--mnchen-3ya.de")).toBe(true);
+  expect(isLikelyDomain("192.168.1.10")).toBe(false);
+  expect(isLikelyDomain("-bad.com")).toBe(false);
 });

@@ -57,6 +57,7 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
 - `lookup(domain, options?) => Promise<LookupResult>`
   - Tries RDAP first if supported by the domain’s TLD; if unavailable or fails, falls back to WHOIS (unless toggled off).
   - Result is `{ ok: boolean, record?: DomainRecord, error?: string }`.
+  - `domain` may be Unicode (`münchen.de`) and may carry surrounding whitespace or a trailing dot; the lowercase punycode form is what gets queried.
 - `toRegistrableDomain(input, options?) => string | null`
   - Normalizes a domain or URL to its registrable domain (eTLD+1).
   - Returns the registrable domain string, or `null` for IPs/invalid input; [options](https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts) are forwarded to `tldts` (e.g., `allowPrivateDomains`).

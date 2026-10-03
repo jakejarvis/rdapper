@@ -23,23 +23,32 @@ export function getDomainTld(domain: string, opts?: ParseOptions): string | null
 }
 
 /**
- * Basic domain validity check (hostname-like), not performing DNS or RDAP.
+ * The lowercase ASCII (punycode) form of a domain name, accepting Unicode labels, surrounding
+ * whitespace, and a trailing dot. Undefined when the input is not a bare hostname.
  */
-export function isLikelyDomain(value: string): boolean {
-  const v = (value ?? "").trim();
-  // Accept punycoded labels (xn--) by allowing digits and hyphens in TLD as well,
-  // while disallowing leading/trailing hyphens in any label.
-  return /^(?=.{1,253}$)(?:(?!-)[a-z0-9-]{1,63}(?<!-)\.)+(?!-)[a-z0-9-]{2,63}(?<!-)$/.test(
-    v.toLowerCase(),
-  );
+export function toAsciiDomain(input: string): string | undefined {
+  const raw = (input ?? "").trim().replace(/\.$/, "");
+  // The URL parser would also accept a path, port, or credentials
+  if (!raw || /[\s/\\?#@:%]/.test(raw)) return undefined;
+  try {
+    return new URL(`http://${raw}`).hostname;
+  } catch {
+    return undefined;
+  }
 }
 
-export function punyToUnicode(domain: string): string {
-  try {
-    return domain.normalize("NFC");
-  } catch {
-    return domain;
-  }
+/**
+ * Basic domain validity check (hostname-like), not performing DNS or RDAP. Unicode names are
+ * checked in their punycode form.
+ */
+export function isLikelyDomain(value: string): boolean {
+  const v = toAsciiDomain(value);
+  // Accept punycoded labels (xn--) by allowing digits and hyphens in TLD as well,
+  // while disallowing leading/trailing hyphens in any label and an all-numeric TLD (an IP).
+  return (
+    !!v &&
+    /^(?=.{1,253}$)(?:(?!-)[a-z0-9-]{1,63}(?<!-)\.)+(?!-)(?!\d+$)[a-z0-9-]{2,63}(?<!-)$/.test(v)
+  );
 }
 
 /**

@@ -87,6 +87,20 @@ describe("lookup orchestration", () => {
     expect(vi.mocked(whoisClient.whoisQuery)).toHaveBeenCalledOnce();
   });
 
+  it("queries the trimmed, lowercase ASCII form of the input", async () => {
+    for (const [input, queried] of [
+      ["  Example.COM.\r", "example.com"],
+      ["münchen.de", "xn--mnchen-3ya.de"],
+    ]) {
+      vi.mocked(rdapClient.fetchRdapDomain).mockClear();
+      const res = await lookup(input as string, { timeoutMs: 200 });
+      expect(res.ok, res.error).toBe(true);
+      expect(vi.mocked(rdapClient.fetchRdapDomain).mock.calls[0]?.[0]).toBe(queried);
+    }
+    const ip = await lookup("192.168.1.10", { timeoutMs: 200 });
+    expect(ip.errorCode).toBe("invalid_input");
+  });
+
   it("routes names under a sub-registry by that suffix (RDAP and WHOIS)", async () => {
     const res = await lookup("google.uk.com", { timeoutMs: 200 });
     expect(res.ok, res.error).toBe(true);

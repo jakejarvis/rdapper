@@ -1,5 +1,5 @@
 import { linkSignals, throwIfAborted } from "./lib/async";
-import { getDomainParts, isLikelyDomain } from "./lib/domain";
+import { getDomainParts, isLikelyDomain, toAsciiDomain } from "./lib/domain";
 import { classifyError, RdapperError } from "./lib/errors";
 import { getSubRegistrySuffix } from "./lib/subregistries";
 import { attemptForError, type LookupContext } from "./lib/trace";
@@ -86,11 +86,13 @@ export async function lookup(domain: string, opts?: LookupOptions): Promise<Look
 }
 
 async function runLookup(
-  domain: string,
+  input: string,
   opts: LookupOptions | undefined,
   ctx: LookupContext,
 ): Promise<LookupResult> {
-  if (!isLikelyDomain(domain)) {
+  // Query the ASCII form: "  München.DE." becomes "xn--mnchen-3ya.de"
+  const domain = toAsciiDomain(input);
+  if (!domain || !isLikelyDomain(domain)) {
     return failure(ctx, "invalid_input", "Input does not look like a domain");
   }
 
