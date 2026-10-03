@@ -206,32 +206,52 @@ function nestedAbuseVcard(entities: unknown): ParsedVCard | undefined {
   return undefined;
 }
 
+/**
+ * The registrar, from every registrar entity: a merged document holds the registry's copy (often
+ * just a name and IANA ID) and the registrar's own (URL, address, phone), so later copies with
+ * the same IANA ID fill the first one's gaps.
+ */
 function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
   if (!Array.isArray(entities)) return undefined;
+  let info: RegistrarInfo | undefined;
+  let abuse: ParsedVCard | undefined;
   for (const ent of entities) {
     if (!rolesOf(ent).some((r) => /registrar/i.test(r))) continue;
-    const v = parseVcard((ent as RdapDoc)?.vcardArray);
-    const abuse = nestedAbuseVcard((ent as RdapDoc)?.entities);
-    const ianaId = Array.isArray((ent as RdapDoc)?.publicIds)
-      ? ((ent as RdapDoc).publicIds as Array<RdapDoc>).find((id) =>
-          /iana\s*registrar\s*id/i.test(String(id?.type)),
-        )?.identifier
-      : undefined;
-    return {
-      name: v.fn || v.org || asString((ent as RdapDoc)?.handle) || undefined,
-      ianaId: asString(ianaId),
-      url: v.url ?? undefined,
-      // Fall back to the abuse contact, matching WHOIS "Registrar Abuse Contact Email/Phone"
-      email: v.email?.[0] ?? abuse?.email?.[0],
-      phone: v.tel?.[0] ?? abuse?.tel?.[0],
-      street: v.street,
-      city: v.locality,
-      state: v.region,
-      postalCode: v.postcode,
-      ...resolveCountry(v.country, v.countryCode),
-    };
+    const next = registrarInfo(ent);
+    if (info?.ianaId && next.ianaId && info.ianaId !== next.ianaId) continue;
+    if (!info) info = next;
+    else {
+      const record = info as Record<string, unknown>;
+      for (const [key, value] of Object.entries(next)) record[key] ??= value;
+    }
+    abuse ??= nestedAbuseVcard((ent as RdapDoc)?.entities);
   }
-  return undefined;
+  if (!info) return undefined;
+  // Fall back to the abuse contact, matching WHOIS "Registrar Abuse Contact Email/Phone"
+  info.email ??= abuse?.email?.[0];
+  info.phone ??= abuse?.tel?.[0];
+  return info;
+}
+
+function registrarInfo(ent: unknown): RegistrarInfo {
+  const v = parseVcard((ent as RdapDoc)?.vcardArray);
+  const ianaId = Array.isArray((ent as RdapDoc)?.publicIds)
+    ? ((ent as RdapDoc).publicIds as Array<RdapDoc>).find((id) =>
+        /iana\s*registrar\s*id/i.test(String(id?.type)),
+      )?.identifier
+    : undefined;
+  return {
+    name: v.fn || v.org || asString((ent as RdapDoc)?.handle) || undefined,
+    ianaId: asString(ianaId),
+    url: v.url ?? undefined,
+    email: v.email?.[0],
+    phone: v.tel?.[0],
+    street: v.street,
+    city: v.locality,
+    state: v.region,
+    postalCode: v.postcode,
+    ...resolveCountry(v.country, v.countryCode),
+  };
 }
 
 /** Does an RFC 9537 redaction refer to the entity with this RDAP role (e.g. "registrant")? */

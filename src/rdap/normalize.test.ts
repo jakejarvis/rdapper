@@ -553,3 +553,57 @@ test("normalizeRdap combines registry and registrar copies of a contact and spli
     ["admin", "Ops Team", "ops@acme.example"],
   ]);
 });
+
+test("normalizeRdap fills registrar gaps from the registrar's own copy", () => {
+  const ids = [{ type: "IANA Registrar ID", identifier: "292" }];
+  const rec = normalizeRdap(
+    "google.com",
+    "com",
+    {
+      ldhName: "google.com",
+      entities: [
+        // Registry copy: name and IANA ID, abuse contact nested
+        {
+          roles: ["registrar"],
+          publicIds: ids,
+          vcardArray: ["vcard", [["fn", {}, "text", "MarkMonitor Inc."]]],
+          entities: [
+            {
+              roles: ["abuse"],
+              vcardArray: ["vcard", [["email", {}, "text", "abuse@markmonitor.com"]]],
+            },
+          ],
+        },
+        // The registrar's own copy, from its RDAP document
+        {
+          roles: ["registrar"],
+          publicIds: ids,
+          vcardArray: [
+            "vcard",
+            [
+              ["fn", {}, "text", "Markmonitor Inc."],
+              ["url", {}, "uri", "https://www.markmonitor.com"],
+              ["tel", {}, "uri", "tel:+1.2083895740"],
+              ["adr", {}, "text", ["", "", "3540 E Longwing Ln", "Meridian", "ID", "83646", "US"]],
+            ],
+          ],
+        },
+        // A different registrar's entity is not mixed in
+        {
+          roles: ["registrar"],
+          publicIds: [{ type: "IANA Registrar ID", identifier: "1" }],
+          vcardArray: ["vcard", [["email", {}, "text", "x@other.example"]]],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.registrar).toMatchObject({
+    name: "MarkMonitor Inc.",
+    ianaId: "292",
+    url: "https://www.markmonitor.com",
+    phone: "+1.2083895740",
+    email: "abuse@markmonitor.com",
+    city: "Meridian",
+  });
+});
