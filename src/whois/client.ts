@@ -31,6 +31,19 @@ export interface WhoisTransportOptions {
 }
 
 /**
+ * Decode a WHOIS reply as UTF-8, or as Latin-1 (windows-1252, its WHATWG superset) when it isn't
+ * valid UTF-8: some registries (.br, .fi) answer in Latin-1, which UTF-8 decoding turns into U+FFFD
+ * for good. A character cut off at the end (a read timeout) doesn't count against UTF-8.
+ */
+export function decodeWhoisReply(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes, { stream: true });
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
+/**
  * Perform a WHOIS query against an RFC 3912 server over TCP 43.
  * Returns the raw text and the server used.
  */
@@ -95,7 +108,7 @@ async function queryTcp(
     let done = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const text = () => Buffer.concat(chunks).toString("utf8");
+    const text = () => decodeWhoisReply(Buffer.concat(chunks));
     const finish = (settle: () => void) => {
       if (done) return;
       done = true;

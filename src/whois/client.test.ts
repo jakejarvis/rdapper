@@ -50,3 +50,21 @@ describe("query transformation for non-English WHOIS servers", () => {
     expect(capturedQuery).toBe("hairtect.jp/e");
   });
 });
+
+describe("decodeWhoisReply", () => {
+  it("decodes UTF-8, and Latin-1 replies without replacement characters", async () => {
+    const { decodeWhoisReply } = await import("./client");
+    expect(decodeWhoisReply(Buffer.from("owner: Núcleo de Informação", "utf8"))).toBe(
+      "owner: Núcleo de Informação",
+    );
+    // .br and .fi send Latin-1
+    expect(decodeWhoisReply(Buffer.from("owner: Núcleo de Informação", "latin1"))).toBe(
+      "owner: Núcleo de Informação",
+    );
+    // UTF-8 cut off mid-character by a read timeout stays UTF-8
+    const cut = Buffer.from("name: Liikenne- ja viestintävirasto", "utf8").subarray(0, -1);
+    expect(decodeWhoisReply(Buffer.concat([cut, Buffer.from([0xc3])]))).toBe(
+      "name: Liikenne- ja viestintävirast",
+    );
+  });
+});
