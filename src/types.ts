@@ -349,7 +349,7 @@ export interface LookupOptions {
   maxWhoisReferralHops?: number;
   /** Follow RDAP related/entity links (default true) */
   rdapFollowLinks?: boolean;
-  /** Maximum RDAP related link fetches (default 2) */
+  /** Maximum RDAP related link fetches, counting links found in fetched documents (default 2) */
   maxRdapLinkHops?: number;
   /** RDAP link rels to consider (default ["related","entity","registrar","alternate"]) */
   rdapLinkRels?: string[];

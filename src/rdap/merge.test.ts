@@ -68,4 +68,56 @@ describe("fetchAndMergeRdapRelated", () => {
     const { merged } = await fetchAndMergeRdapRelated("example.com", base, { customFetch });
     expect((merged as { status?: unknown }).status).toBeUndefined();
   });
+
+  it("follows links found in fetched documents, up to maxRdapLinkHops fetches in all", async () => {
+    const domainDoc = (status: string, links: unknown[] = []) => ({
+      objectClassName: "domain",
+      ldhName: "example.com",
+      status: [status],
+      links,
+    });
+    const base = domainDoc("server hold", [
+      related("https://a.test/d"),
+      related("https://b.test/d"),
+    ]);
+    const customFetch = serve({
+      "https://a.test/d": domainDoc("client hold", [related("https://c.test/d")]),
+      "https://b.test/d": domainDoc("inactive"),
+      "https://c.test/d": domainDoc("pending delete"),
+    });
+    const three = await fetchAndMergeRdapRelated("example.com", base, {
+      customFetch,
+      maxRdapLinkHops: 3,
+    });
+    expect(three.serversTried).toEqual([
+      "https://a.test/d",
+      "https://b.test/d",
+      "https://c.test/d",
+    ]);
+    expect((three.merged as { status: string[] }).status).toContain("pending delete");
+    customFetch.mockClear();
+    const two = await fetchAndMergeRdapRelated("example.com", base, { customFetch });
+    expect(customFetch).toHaveBeenCalledTimes(2);
+    expect(two.serversTried).toEqual(["https://a.test/d", "https://b.test/d"]);
+  });
+
+  it("skips malformed links, self links, and links without an href", async () => {
+    const base = {
+      ldhName: "example.com",
+      links: [
+        null,
+        { rel: "self", href: "https://rdap.test/domain/example.com" },
+        related("https://rdap.test/domain/example.com"),
+        {
+          rel: "related",
+          type: "application/rdap+json",
+          value: "https://rdap.test/domain/example.com",
+        },
+      ],
+    };
+    const customFetch = serve({});
+    const { serversTried } = await fetchAndMergeRdapRelated("example.com", base, { customFetch });
+    expect(customFetch).not.toHaveBeenCalled();
+    expect(serversTried).toEqual([]);
+  });
 });

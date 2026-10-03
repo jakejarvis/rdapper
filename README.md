@@ -435,7 +435,7 @@ const result = await lookup("example.com", {
 - `followWhoisReferral?: boolean` – Follow registrar referral from the TLD WHOIS (default `true`).
 - `maxWhoisReferralHops?: number` – Maximum registrar WHOIS referral hops to follow (default `2`).
 - `rdapFollowLinks?: boolean` – Follow related/entity RDAP links to enrich data (default `true`).
-- `maxRdapLinkHops?: number` – Maximum RDAP related link hops to follow (default `2`).
+- `maxRdapLinkHops?: number` – Maximum RDAP related link fetches, following links found in fetched documents too (default `2`).
 - `rdapLinkRels?: string[]` – RDAP link rel values to consider (default `["related","entity","registrar","alternate"]`).
 - `customBootstrapData?: BootstrapData` – Pre-loaded RDAP bootstrap data for caching control (see [Bootstrap Data Caching](#bootstrap-data-caching)).
 - `customBootstrapUrl?: string` – Override RDAP bootstrap URL (ignored if `customBootstrapData` is provided).

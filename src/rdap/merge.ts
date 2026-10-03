@@ -5,7 +5,7 @@ import { resolveFetch } from "../lib/fetch";
 import { uniqBy } from "../lib/text";
 import { type LookupContext, traced } from "../lib/trace";
 import type { LookupOptions } from "../types";
-import { extractRdapRelatedLinks } from "./links";
+import { extractRdapRelatedLinks, selfLinks } from "./links";
 
 type Json = Record<string, unknown>;
 
@@ -64,7 +64,10 @@ export function mergeRdapDocs(baseDoc: unknown, others: unknown[]): unknown {
   return merged;
 }
 
-/** Fetch and merge RDAP related documents up to a hop limit. */
+/**
+ * Fetch and merge related RDAP documents, breadth-first: links in fetched documents (a
+ * registrar's own related link) are followed too, up to `maxRdapLinkHops` fetches in all.
+ */
 export async function fetchAndMergeRdapRelated(
   domain: string,
   baseDoc: unknown,
@@ -73,37 +76,29 @@ export async function fetchAndMergeRdapRelated(
 ): Promise<{ merged: unknown; serversTried: string[] }> {
   const tried: string[] = [];
   if (opts?.rdapFollowLinks === false) return { merged: baseDoc, serversTried: tried };
-  const maxHops = Math.max(0, opts?.maxRdapLinkHops ?? 2);
-  if (maxHops === 0) return { merged: baseDoc, serversTried: tried };
-
-  const visited = new Set<string>();
+  const maxFetches = Math.max(0, opts?.maxRdapLinkHops ?? 2);
+  const rels = { rdapLinkRels: opts?.rdapLinkRels };
+  const visited = new Set<string>(selfLinks(baseDoc));
+  const queue = extractRdapRelatedLinks(baseDoc, rels);
   let current = baseDoc;
-  let hops = 0;
-
-  // BFS: collect links from the latest merged doc only to keep it simple and bounded
-  while (hops < maxHops) {
+  let fetches = 0;
+  while (queue.length && fetches < maxFetches) {
     throwIfAborted(opts?.signal);
-    const links = extractRdapRelatedLinks(current, {
-      rdapLinkRels: opts?.rdapLinkRels,
-    });
-    const nextBatch = links.filter((u) => !visited.has(u));
-    if (nextBatch.length === 0) break;
-    const fetchedDocs: unknown[] = [];
-    for (const url of nextBatch) {
+    const url = queue.shift() as string;
+    if (visited.has(url)) continue;
+    visited.add(url);
+    fetches += 1;
+    try {
+      const { json } = await fetchRdapUrl(url, opts, ctx);
+      tried.push(url);
+      if (!describesDomain(json, domain)) continue;
+      current = mergeRdapDocs(current, [json]);
+      for (const self of selfLinks(json)) visited.add(self);
+      queue.push(...extractRdapRelatedLinks(json, rels));
+    } catch {
+      // caller abort / deadline stops the lookup; other failures are recorded in attempts
       throwIfAborted(opts?.signal);
-      visited.add(url);
-      try {
-        const { json } = await fetchRdapUrl(url, opts, ctx);
-        tried.push(url);
-        if (describesDomain(json, domain)) fetchedDocs.push(json);
-      } catch {
-        // caller abort / deadline stops the lookup; other failures are recorded in attempts
-        throwIfAborted(opts?.signal);
-      }
     }
-    if (fetchedDocs.length === 0) break;
-    current = mergeRdapDocs(current, fetchedDocs);
-    hops += 1;
   }
   return { merged: current, serversTried: tried };
 }
