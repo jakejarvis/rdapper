@@ -75,9 +75,11 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
 For quick checks, a minimal CLI is included:
 
 ```bash
-npx rdapper example.com
+npx rdapper example.com example.org
 echo "example.com" | npx rdapper
 ```
+
+Domains are looked up one at a time, in order, printing each result as JSON; the exit code is `1` when any lookup fails.
 
 ### Edge runtimes (e.g., Vercel Edge)
 
