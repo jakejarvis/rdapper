@@ -221,6 +221,18 @@ describe("error reporting", () => {
     expect(vi.mocked(whoisQuery)).toHaveBeenCalledTimes(1);
   });
 
+  it("doesn't read the TLD registry's 404 as unregistered for a suffix it doesn't run", async () => {
+    // Nominet's RDAP (listed for uk) answers 404 for nhs.uk names it doesn't hold
+    const customFetch: FetchLike = vi.fn(async () => new Response("", { status: 404 }));
+    const res = await lookup("england.nhs.uk", {
+      customBootstrapData: { ...bootstrap, services: [[["uk"], ["https://rdap.nominet.uk/uk/"]]] },
+      customFetch,
+    });
+    expect(res).toMatchObject({ ok: false, errorCode: "no_server" });
+    expect(customFetch).not.toHaveBeenCalled();
+    expect(vi.mocked(whoisQuery)).not.toHaveBeenCalled();
+  });
+
   it("reports the last RDAP failure's own code", async () => {
     const customFetch: FetchLike = vi.fn(async () => new Response("down", { status: 500 }));
     const res = await lookup("example.com", {

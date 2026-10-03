@@ -47,6 +47,10 @@ export const SUB_REGISTRIES: Readonly<Record<string, SubRegistry>> = {
   // Jisc runs ac.uk. Nominet's RDAP answers 404 for its names (which reads as "not registered"),
   // and Nominet's WHOIS answers with the ac.uk delegation itself.
   "ac.uk": { whois: "whois.ja.net" },
+  // Nor does Nominet hold nhs.uk or police.uk names ("Nominet is not the registry for this domain
+  // name"), and their operators publish neither RDAP nor WHOIS
+  "nhs.uk": {},
+  "police.uk": {},
 };
 
 /** The sub-registry suffix a domain falls under (e.g. "uk.com" for google.uk.com), if any. */

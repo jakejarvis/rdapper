@@ -26,3 +26,10 @@ test("SUB_REGISTRIES points each suffix at its own CentralNic RDAP path", () => 
 test("SUB_REGISTRIES sends ac.uk to Jisc's WHOIS, with no RDAP", () => {
   expect(SUB_REGISTRIES["ac.uk"]).toEqual({ whois: "whois.ja.net" });
 });
+
+test("SUB_REGISTRIES keeps nhs.uk and police.uk names away from Nominet", () => {
+  // Nominet's RDAP answers 404 for them, which would read as "not registered"
+  expect(SUB_REGISTRIES["nhs.uk"]).toEqual({});
+  expect(SUB_REGISTRIES["police.uk"]).toEqual({});
+  expect(getSubRegistrySuffix("england.nhs.uk")).toBe("nhs.uk");
+});
