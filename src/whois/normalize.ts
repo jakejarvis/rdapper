@@ -156,8 +156,8 @@ export function normalizeWhois(
       "registrar organization",
       "registrar name",
       "registrar organization name", // .tr
+      "registrar-name", // .lu
       "sponsoring registrar",
-      "organisation",
       "record maintained by",
       "registration service provider", // .tw
     ]);

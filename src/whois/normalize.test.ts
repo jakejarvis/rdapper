@@ -622,3 +622,25 @@ Registrar
   const kr = "DNSSEC                      : 서명\n\nDNSSEC                      : signed\n";
   expect(normalizeWhois("example.kr", "kr", kr, "whois.kr").dnssec).toEqual({ enabled: true });
 });
+
+test("WHOIS registrar from .lu 'registrar-name', not a contact's Organisation (.be)", () => {
+  const lu = "domainname: dns.lu\nregistrar-name: Fondation Restena\n";
+  expect(normalizeWhois("dns.lu", "lu", lu, "whois.dns.lu").registrar?.name).toBe(
+    "Fondation Restena",
+  );
+  const be = `
+Domain:	dnsbelgium.be
+Status:	NOT AVAILABLE
+
+Registrar Technical Contacts:
+	Organisation: DNS Belgium vzw
+
+Registrar:
+	Name:	 DNS BE vzw/asbl
+	Website: http://www.dns.be
+`;
+  expect(normalizeWhois("dnsbelgium.be", "be", be, "whois.dns.be").registrar).toEqual({
+    name: "DNS BE vzw/asbl",
+    url: "http://www.dns.be",
+  });
+});
