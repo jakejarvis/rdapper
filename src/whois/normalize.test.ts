@@ -606,3 +606,19 @@ test("WHOIS date keys and forms across ccTLDs", () => {
   expect(rec("changed:        20200427 16:03:40\n").updatedDate).toBe("2020-04-27T16:03:40Z");
   expect(rec("Registered On: Before 2001\n").creationDate).toBeUndefined();
 });
+
+test("WHOIS DNSSEC comes from the domain's block, not the registrar's capability (.it)", () => {
+  const it = `
+Domain:             example.it
+Status:             ok
+Signed:             no
+
+Registrar
+  Organization:     Example Registrar S.r.l.
+  DNSSEC:           yes
+`;
+  expect(normalizeWhois("example.it", "it", it, "whois.nic.it").dnssec).toEqual({ enabled: false });
+  // .kr writes the Korean section first
+  const kr = "DNSSEC                      : 서명\n\nDNSSEC                      : signed\n";
+  expect(normalizeWhois("example.kr", "kr", kr, "whois.kr").dnssec).toEqual({ enabled: true });
+});

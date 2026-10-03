@@ -224,11 +224,13 @@ export function normalizeWhois(
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled = isPrivacyContact(registrant);
 
-  // "signedDelegation", "Signed delegation", "yes", "active" (.bg, .md); not "unsigned" or
-  // "Inactive". .kr repeats the field in Korean, so any value may carry the answer.
-  const dnssecValues = [...(map.dnssec ?? []), ...(map["dnssec signed"] ?? [])]; // .rs
-  const dnssec = dnssecValues.length
-    ? { enabled: dnssecValues.some((v) => /^(?:signed|yes|true|active)/i.test(v.trim())) }
+  // "signedDelegation", "Signed delegation", "yes", "active" (.bg, .md), "서명" (.kr); not
+  // "unsigned" or "Inactive". Read from the first block that has it, preferring "Signed": .it's
+  // registrar section has "DNSSEC: yes" for the registrar's support, beside the domain's
+  // "Signed: no".
+  const dnssecValues = valuesOf(blocks, ["signed", "dnssec signed", "dnssec"]); // "dnssec signed": .rs
+  const dnssec = dnssecValues
+    ? { enabled: dnssecValues.some((v) => /^(?:signed|yes|true|active|서명)/i.test(v.trim())) }
     : undefined;
 
   // Simple lock derivation from statuses (the EPP code, or the registry's wording in raw)
@@ -305,6 +307,15 @@ function parseNameserverLine(line: string, domain: string): Nameserver | undefin
   if (ipv4.length) ns.ipv4 = ipv4;
   if (ipv6.length) ns.ipv6 = ipv6;
   return ns;
+}
+
+/** Values of the first key (by priority) present in the first block that has any of them. */
+function valuesOf(blocks: Array<Record<string, string[]>>, keys: string[]): string[] | undefined {
+  for (const block of blocks) {
+    const key = keys.find((k) => block[k]?.length);
+    if (key) return block[key];
+  }
+  return undefined;
 }
 
 // Status keys by preference: .fr lists EPP codes as "eppstatus" beside a plain "status: ACTIVE"
