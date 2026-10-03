@@ -56,16 +56,18 @@ export function toISO(dateLike: string | number | Date | undefined | null): stri
   }
   // Anything else goes to the native parser (RFC 2822, "Tue Jan 01 2000", ...). It accepts any
   // word next to a year ("Before 2001" on .ro, "since 1999"), so require a month name or a
-  // second number. It reads a value without a zone as local time: pin those to UTC.
+  // second number, and refuse a qualified date (.uk "before Aug-1996").
+  if (/^(?:before|after|since|prior to|circa)\b/i.test(raw)) return undefined;
   if (!/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(raw) && !/\d\D+\d/.test(raw)) {
     return undefined;
   }
-  const hasZone = /\b(?:UTC?|GMT|[ECMP][SD]T)\b|(?:\dZ|[+-]\d{2}:?\d{2})$/i.test(raw);
-  for (const candidate of hasZone ? [raw] : [`${raw} UTC`, `${raw}Z`]) {
-    const native = new Date(candidate);
-    if (!Number.isNaN(native.getTime())) return toIsoFromDate(native);
-  }
-  return undefined;
+  // A value without a zone would be read as local time, so pin it to UTC. A numeric offset
+  // counts only after a time of day: in "Aug-1996" the "-1996" is a year.
+  const hasZone =
+    /\b(?:UTC?|GMT|[ECMP][SD]T)\b/i.test(raw) ||
+    /\d:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const native = new Date(hasZone ? raw : `${raw} UTC`);
+  return Number.isNaN(native.getTime()) ? undefined : toIsoFromDate(native);
 }
 
 /**

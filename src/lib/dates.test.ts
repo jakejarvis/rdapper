@@ -101,6 +101,7 @@ test("toISO results do not depend on the host timezone", () => {
     "2001-Jan-03.",
     "Mon, 01 Jan 2024 10:00:00",
     "2024-01-15 10:00",
+    "Aug-1996",
   ];
   const inUtc = inputs.map((i) => toISO(i));
   try {
@@ -120,5 +121,11 @@ test("toISO results do not depend on the host timezone", () => {
     "2001-01-03T00:00:00Z",
     "2024-01-01T10:00:00Z",
     "2024-01-15T10:00:00Z",
+    "1996-08-01T00:00:00Z",
   ]);
+});
+
+test("toISO refuses qualified dates", () => {
+  expect(toISO("before Aug-1996")).toBeUndefined(); // .uk
+  expect(toISO("Before 2001")).toBeUndefined(); // .ro
 });
