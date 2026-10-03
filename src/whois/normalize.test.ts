@@ -301,3 +301,58 @@ Admin Country: Canada
   expect(admin).toMatchObject({ country: "Canada", countryCode: "CA" });
   expect(admin?.redacted).toBeUndefined();
 });
+
+test("WHOIS FRED-style blocks (.mk, .cz) take dates from the domain block", () => {
+  // Excerpt of whois.marnet.mk for marnet.mk: contact and nsset blocks repeat "created"
+  const text = `
+domain:       marnet.mk
+registrant:   MARNET-R08502
+nsset:        MARNET-NS15031
+registrar:    MARNET-REG
+registered:   22.05.2008 14:00:00
+changed:      13.08.2023 16:38:49
+expire:       22.05.2032
+
+contact:      MARNET-R08502
+org:          Example Org
+address:      DATA REDACTED
+registrar:    MARNET-REG
+created:      DATA REDACTED
+
+nsset:        MARNET-NS15031
+nserver:      dns.marnet.mk (185.162.192.33)
+registrar:    MARNET-REG
+created:      13.08.2023 16:37:55
+`;
+  const rec = normalizeWhois("marnet.mk", "mk", text, "whois.marnet.mk");
+  expect(rec.creationDate).toBe("2008-05-22T14:00:00Z");
+  expect(rec.updatedDate).toBe("2023-08-13T16:38:49Z");
+  expect(rec.expirationDate).toBe("2032-05-22T00:00:00Z");
+});
+
+test("WHOIS .tw TWNIC 'Record ... on' sentence dates", () => {
+  // Excerpt of whois.twnic.net.tw for twnic.net.tw
+  const text = [
+    "Domain Name: twnic.net.tw",
+    "   Domain Status: ok",
+    "   Technical Contact:",
+    "      (Redacted for privacy)",
+    "",
+    "   Record expires on 2099-12-31 23:59:59 (UTC+8)",
+    "   Record created on 2000-02-02 15:06:48 (UTC+8)",
+    "",
+    "   Domain servers in listed order:",
+    "      dns1.twnic.net.tw     210.65.47.29 ",
+    "",
+  ].join("\n");
+  const rec = normalizeWhois("twnic.net.tw", "net.tw", text, "whois.twnic.net.tw");
+  expect(rec.creationDate).toBe("2000-02-02T07:06:48Z");
+  expect(rec.expirationDate).toBe("2099-12-31T15:59:59Z");
+});
+
+test("WHOIS header-style date whose value follows a blank line still parses", () => {
+  const text = "Domain Name: example.test\nCreation Date:\n\n    2020-01-02T03:04:05Z\n";
+  expect(normalizeWhois("example.test", "test", text, undefined).creationDate).toBe(
+    "2020-01-02T03:04:05Z",
+  );
+});

@@ -65,6 +65,18 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
   return Object.fromEntries(map);
 }
 
+/**
+ * Parse each blank-line-separated block of a WHOIS reply on its own, in order. Block-structured
+ * registries put the domain's fields first and repeat keys like "created" in later contact and
+ * nameserver blocks, which {@link parseKeyValueLines} merges into one list.
+ */
+export function parseKeyValueBlocks(text: string): Array<Record<string, string[]>> {
+  return text
+    .split(/\r?\n[ \t]*\r?\n/)
+    .filter((block) => block.trim())
+    .map(parseKeyValueLines);
+}
+
 export function parseCsv(value: string | undefined): string[] | undefined {
   if (!value) return undefined;
   return value

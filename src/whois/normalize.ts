@@ -1,6 +1,6 @@
 import { toISOFromTokens } from "../lib/dates";
 import { finalizeContact, isPrivacyContact } from "../lib/contacts";
-import { parseKeyValueLines, uniq } from "../lib/text";
+import { parseKeyValueBlocks, parseKeyValueLines, uniq } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
 // Common WHOIS availability phrases seen across registries/registrars
@@ -54,13 +54,20 @@ export function normalizeWhois(
   includeRaw = false,
 ): DomainRecord {
   const map = parseKeyValueLines(whoisText);
+  const blocks = parseKeyValueBlocks(whoisText);
 
-  // Date extraction across common synonyms
+  // Date extraction across common synonyms. The domain's own block comes first, so an earlier
+  // block beats a higher-priority key in a later one: FRED registries (.cz, .mk) repeat "created"
+  // in every contact and nameserver block. The whole-reply map covers a header whose value sits
+  // past a blank line.
+  const dateOf = (keys: string[]) => firstDate(blocks, keys) ?? firstDate([map], keys);
   // .gg/.je list dates as sentences under "Relevant dates:", e.g. "Registered on 28th December 2018 at 05:54:43.861"
   const relevantDate = (label: RegExp) =>
-    map["relevant dates"]?.find((l) => label.test(l))?.replace(label, "");
+    toISOFromTokens(map["relevant dates"]?.find((l) => label.test(l))?.replace(label, ""));
+  // .tw writes "Record created on 2000-02-02 15:06:48 (UTC+8)", with no key separator
+  const recordDate = (label: RegExp) => toISOFromTokens(whoisText.match(label)?.[1]);
   const creationDate =
-    anyValue(map, [
+    dateOf([
       "creation date",
       "created on",
       "created",
@@ -75,42 +82,46 @@ export function normalizeWhois(
       "domain registered",
       "registered date", // .co.jp
       "assigned", // .il
-    ]) ?? relevantDate(/^registered on\s+/i);
-  const updatedDate = anyValue(map, [
-    "updated date",
-    "updated",
-    "last updated",
-    "last updated on", // .mx
-    "last update", // .co.jp
-    "last-update", // .fr
-    "last modified",
-    "modified",
-    "changed",
-    "modification date",
-    "domain record last updated", // .edu
-  ]);
-  const expirationDate = anyValue(map, [
-    "registry expiry date",
-    "registry expiration date",
-    "registrar registration expiration date",
-    "registrar registration expiry date",
-    "registrar expiration date",
-    "registrar expiry date",
-    "expiry date",
-    "expiration date",
-    "expiry",
-    "expire date", // .it
-    "expire",
-    "expired", // .ly
-    "expires on",
-    "expires",
-    "expiration time", // .cn
-    "domain expires", // .edu
-    "paid-till",
-    "renewal date", // .pl
-    "validity", // .il
-    "record will expire on",
-  ]);
+    ]) ??
+    relevantDate(/^registered on\s+/i) ??
+    recordDate(/^[ \t]*Record created on[ \t]+(.+?)\.?$/im);
+  const updatedDate =
+    dateOf([
+      "updated date",
+      "updated",
+      "last updated",
+      "last updated on", // .mx
+      "last update", // .co.jp
+      "last-update", // .fr
+      "last modified",
+      "modified",
+      "changed",
+      "modification date",
+      "domain record last updated", // .edu
+    ]) ?? recordDate(/^[ \t]*Record last updated on[ \t]+(.+?)\.?$/im);
+  const expirationDate =
+    dateOf([
+      "registry expiry date",
+      "registry expiration date",
+      "registrar registration expiration date",
+      "registrar registration expiry date",
+      "registrar expiration date",
+      "registrar expiry date",
+      "expiry date",
+      "expiration date",
+      "expiry",
+      "expire date", // .it
+      "expire",
+      "expired", // .ly
+      "expires on",
+      "expires",
+      "expiration time", // .cn
+      "domain expires", // .edu
+      "paid-till",
+      "renewal date", // .pl
+      "validity", // .il
+      "record will expire on",
+    ]) ?? recordDate(/^[ \t]*Record expires on[ \t]+(.+?)\.?$/im);
 
   // Registrar info (thin registries like .com/.net require referral follow for full data)
   const registrar: RegistrarInfo | undefined = (() => {
@@ -238,9 +249,9 @@ export function normalizeWhois(
     registrar,
     reseller: anyValue(map, ["reseller"]) || undefined,
     statuses,
-    creationDate: toISOFromTokens(creationDate),
-    updatedDate: toISOFromTokens(updatedDate),
-    expirationDate: toISOFromTokens(expirationDate) ?? toISOFromTokens(okUntil),
+    creationDate,
+    updatedDate,
+    expirationDate: expirationDate ?? toISOFromTokens(okUntil),
     deletionDate: undefined,
     transferLock,
     dnssec,
@@ -256,6 +267,19 @@ export function normalizeWhois(
   };
 
   return record;
+}
+
+/** First value that parses as a date, taking blocks in order and keys by priority within each. */
+function firstDate(blocks: Array<Record<string, string[]>>, keys: string[]): string | undefined {
+  for (const block of blocks) {
+    for (const k of keys) {
+      for (const value of block[k] ?? []) {
+        const iso = toISOFromTokens(value);
+        if (iso) return iso;
+      }
+    }
+  }
+  return undefined;
 }
 
 function anyValue(map: Record<string, string[]>, keys: string[]): string | undefined {
