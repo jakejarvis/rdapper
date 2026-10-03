@@ -1,4 +1,5 @@
 import { resolveTimeoutMs, throwIfAborted, withTimeout } from "../lib/async";
+import { toAsciiDomain } from "../lib/domain";
 import { RdapperError } from "../lib/errors";
 import { resolveFetch } from "../lib/fetch";
 import { uniqBy } from "../lib/text";
@@ -94,13 +95,7 @@ export async function fetchAndMergeRdapRelated(
       try {
         const { json } = await fetchRdapUrl(url, opts, ctx);
         tried.push(url);
-        // only accept docs that appear related to the same domain when possible
-        // if ldhName/unicodeName present, they should match the queried domain (case-insensitive)
-        const ldh = str((json as Json)?.ldhName).toLowerCase();
-        const uni = str((json as Json)?.unicodeName).toLowerCase();
-        if (ldh && !sameDomain(ldh, domain)) continue;
-        if (uni && !sameDomain(uni, domain)) continue;
-        fetchedDocs.push(json);
+        if (describesDomain(json, domain)) fetchedDocs.push(json);
       } catch {
         // caller abort / deadline stops the lookup; other failures are recorded in attempts
         throwIfAborted(opts?.signal);
@@ -151,6 +146,20 @@ function toStringArray(val: unknown): string[] {
 function uniqStrings(arr: string[]): string[] {
   return Array.from(new Set(arr));
 }
-function sameDomain(a: string, b: string): boolean {
-  return a.toLowerCase() === b.toLowerCase();
+/**
+ * Whether a fetched document is this domain's object, so its data can be merged: not an entity,
+ * help, or error document, and named after the queried (ASCII) domain. unicodeName is compared
+ * in its punycode form.
+ */
+function describesDomain(doc: unknown, domain: string): boolean {
+  const d = (doc ?? {}) as Json;
+  const objectClass = str(d.objectClassName).toLowerCase();
+  if (objectClass && objectClass !== "domain") return false;
+  const ldh = str(d.ldhName);
+  const uni = str(d.unicodeName);
+  if (!ldh && !uni) return objectClass === "domain";
+  const target = domain.toLowerCase();
+  if (ldh && toAsciiDomain(ldh) !== target) return false;
+  if (uni && toAsciiDomain(uni) !== target) return false;
+  return true;
 }
