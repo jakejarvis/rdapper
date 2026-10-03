@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { isPrivacyName } from "./privacy";
+import { isPlaceholderValue, isPrivacyName } from "./privacy";
 
 test("isPrivacyName flags redaction notices and privacy services", () => {
   for (const v of [
@@ -45,4 +45,12 @@ test("isPrivacyName does not treat empty placeholders as privacy", () => {
   for (const v of ["-", "n/a", "N/A", "none", "not available"]) {
     expect(isPrivacyName(v), v).toBe(false);
   }
+});
+
+test("isPlaceholderValue recognizes .be and .th notices", () => {
+  expect(isPlaceholderValue("Not shown, please visit www.dnsbelgium.be for webbased whois.")).toBe(
+    true,
+  );
+  expect(isPlaceholderValue("Personal Information")).toBe(true);
+  expect(isPlaceholderValue("Personal Information Systems Ltd")).toBe(false);
 });

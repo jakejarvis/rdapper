@@ -468,7 +468,11 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
       countryKeys.push(`${prefix} country`);
     }
 
-    const name = anyValue(map, nameKeys);
+    // The bare "registrant:"/"holder:" key holds a contact handle on many registries ("G31071",
+    // "NG8867695-NICAT", "CZ-NIC"), and a name on others (.uk's "Registrant:" section)
+    const name = nameKeys.flatMap((k) =>
+      (map[k] ?? []).filter((v) => !(r.prefixes.includes(k) && looksLikeHandle(v))),
+    )[0];
     const org = anyValue(map, orgKeys);
     const email = anyValue(map, emailKeys);
     const phone = anyValue(map, phoneKeys);
@@ -498,6 +502,12 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
     }
   }
   return contacts.length ? contacts : undefined;
+}
+
+/** A single token with a digit, or an uppercase hyphenated code: a registry handle. */
+function looksLikeHandle(value: string): boolean {
+  const v = value.trim();
+  return !/\s/.test(v) && (/\d/.test(v) || /^[A-Z]+(?:-[A-Z]+)+$/.test(v));
 }
 
 function multi(map: Record<string, string[]>, keys: string[]): string[] | undefined {

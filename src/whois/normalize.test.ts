@@ -644,3 +644,25 @@ Registrar:
     url: "http://www.dns.be",
   });
 });
+
+test("WHOIS contact names skip registry handles and placeholder notices", () => {
+  const registrant = (text: string) =>
+    normalizeWhois(
+      "example.test",
+      "test",
+      `domain: example.test\n${text}`,
+      undefined,
+    ).contacts?.find((c) => c.type === "registrant");
+  // .cz/.mk/.ve: the bare key holds a handle; the organization comes from the contact block
+  expect(registrant("registrant:   CZ-NIC\norg:          CZ.NIC, z.s.p.o.\n")).toEqual({
+    type: "registrant",
+    organization: "CZ.NIC, z.s.p.o.",
+  });
+  expect(registrant("holder: NG8867695-NICAT\n")).toBeUndefined();
+  // .uk: the bare key holds the name
+  expect(registrant("Registrant:\n        Example Ltd\n")?.name).toBe("Example Ltd");
+  // .be hides the name behind a notice
+  expect(
+    registrant("Registrant:\n\tNot shown, please visit www.dnsbelgium.be for webbased whois.\n"),
+  ).toMatchObject({ redactedFields: ["name"], redacted: true });
+});
