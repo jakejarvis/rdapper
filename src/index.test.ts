@@ -240,3 +240,20 @@ describe("RDAP responses that can't be read", () => {
     expect(res.error).not.toContain("no RDAP server listed");
   });
 });
+
+describe("isAvailable / isRegistered errors", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reject with an RdapperError carrying the lookup's error code", async () => {
+    const { isAvailable, isRegistered, RdapperError } = await import(".");
+    const err = await isAvailable("not a domain").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RdapperError);
+    expect(err).toMatchObject({ code: "invalid_input", name: "RdapperError" });
+    const aborted = await isRegistered("example.com", { signal: AbortSignal.abort() }).catch(
+      (e: unknown) => e,
+    );
+    expect(aborted).toMatchObject({ code: "aborted", name: "AbortError" });
+  });
+});

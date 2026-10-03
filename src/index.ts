@@ -224,23 +224,34 @@ async function runLookup(
   return { ok: true, record: mergedRecord, attempts: ctx.attempts };
 }
 
+/** A failed lookup as an error, keeping its code (and the name "AbortError" for aborts). */
+function lookupError(res: LookupResult): RdapperError {
+  return new RdapperError(res.errorCode ?? "unknown", res.error || "Lookup failed", {
+    phase: res.errorPhase,
+    server: res.errorServer,
+    retryAfterMs: res.retryAfterMs,
+  });
+}
+
 /**
  * Determine if a domain appears available (not registered).
- * Performs a lookup and resolves to a boolean. Rejects on lookup error.
+ * Performs a lookup and resolves to a boolean. Rejects on lookup error with an RdapperError
+ * carrying the result's errorCode (as `code`), errorPhase, errorServer, and retryAfterMs.
  */
 export async function isAvailable(domain: string, opts?: LookupOptions): Promise<boolean> {
   const res = await lookup(domain, opts);
-  if (!res.ok || !res.record) throw new Error(res.error || "Lookup failed");
+  if (!res.ok || !res.record) throw lookupError(res);
   return res.record.isRegistered === false;
 }
 
 /**
  * Determine if a domain appears registered.
- * Performs a lookup and resolves to a boolean. Rejects on lookup error.
+ * Performs a lookup and resolves to a boolean. Rejects on lookup error with an RdapperError
+ * carrying the result's errorCode (as `code`), errorPhase, errorServer, and retryAfterMs.
  */
 export async function isRegistered(domain: string, opts?: LookupOptions): Promise<boolean> {
   const res = await lookup(domain, opts);
-  if (!res.ok || !res.record) throw new Error(res.error || "Lookup failed");
+  if (!res.ok || !res.record) throw lookupError(res);
   return res.record.isRegistered === true;
 }
 
@@ -254,4 +265,5 @@ export { finalizeContact, isPrivacyContact } from "./lib/contacts";
 export { resolveCountry } from "./lib/countries";
 export { isPlaceholderValue, isPrivacyName } from "./lib/privacy";
 export { normalizeEppStatus } from "./lib/status";
+export { RdapperError } from "./lib/errors";
 export type * from "./types";
