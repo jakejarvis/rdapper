@@ -43,3 +43,11 @@ test("isLikelyDomain accepts Unicode and trailing dots, rejects IPs", () => {
   expect(isLikelyDomain("192.168.1.10")).toBe(false);
   expect(isLikelyDomain("-bad.com")).toBe(false);
 });
+
+test("toRegistrableDomain honors allowPrivateDomains", () => {
+  expect(toRegistrableDomain("foo.github.io")).toBe("github.io");
+  expect(toRegistrableDomain("foo.github.io", { allowPrivateDomains: true })).toBe("foo.github.io");
+  expect(toRegistrableDomain("www.example.co.uk", { allowPrivateDomains: true })).toBe(
+    "example.co.uk",
+  );
+});

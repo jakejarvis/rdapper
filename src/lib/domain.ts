@@ -54,7 +54,8 @@ export function isLikelyDomain(value: string): boolean {
 /**
  * Normalize arbitrary input (domain or URL) to its registrable domain (eTLD+1).
  * Passes options to `tldts.parse()`.
- * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs)
+ * Returns null when the input is not a valid ICANN domain (e.g., invalid TLD, IPs), or with
+ * `allowPrivateDomains`, a valid ICANN or private one.
  * @see https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts
  */
 export function toRegistrableDomain(input: string, opts?: ParseOptions): string | null {
@@ -66,9 +67,9 @@ export function toRegistrableDomain(input: string, opts?: ParseOptions): string 
     ...opts,
   });
 
-  // Reject IPs and non-ICANN/public suffixes.
+  // Reject IPs and suffixes outside the ICANN section, unless private ones were asked for
   if (result.isIp) return null;
-  if (!result.isIcann) return null;
+  if (!result.isIcann && !(opts?.allowPrivateDomains && result.isPrivate)) return null;
 
   const domain = result.domain ?? "";
   if (domain === "") return null;
