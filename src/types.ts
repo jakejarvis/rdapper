@@ -19,9 +19,9 @@ export interface RegistrarInfo {
   ianaId?: string;
   /** Registrar website URL */
   url?: string;
-  /** Registrar contact email address */
+  /** Registrar contact email address, falling back to the registrar's abuse contact */
   email?: string;
-  /** Registrar contact phone number */
+  /** Registrar contact phone number, falling back to the registrar's abuse contact */
   phone?: string;
   /** Street address lines (RDAP only) */
   street?: string[];

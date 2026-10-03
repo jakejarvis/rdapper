@@ -2,7 +2,7 @@ import { resolveCountry } from "../lib/countries";
 import { finalizeContact, isPrivacyContact, redactionFields } from "../lib/contacts";
 import { toISO } from "../lib/dates";
 import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
-import { parseVcard } from "./vcard";
+import { type ParsedVCard, parseVcard } from "./vcard";
 import type { Contact, DomainRecord, Nameserver, Redaction, RegistrarInfo } from "../types";
 
 type RdapDoc = Record<string, unknown>;
@@ -178,14 +178,29 @@ function extractRedactions(redacted: unknown): Redaction[] | undefined {
   return out.length ? out : undefined;
 }
 
+/** An RDAP entity's string roles. */
+function rolesOf(ent: unknown): string[] {
+  const roles = (ent as RdapDoc)?.roles;
+  return Array.isArray(roles) ? roles.filter((r): r is string => typeof r === "string") : [];
+}
+
+/** vCard of the abuse contact nested in a registrar entity, where gTLD registries put it. */
+function nestedAbuseVcard(entities: unknown): ParsedVCard | undefined {
+  if (!Array.isArray(entities)) return undefined;
+  for (const ent of entities) {
+    if (!rolesOf(ent).some((r) => /^abuse$/i.test(r))) continue;
+    const v = parseVcard((ent as RdapDoc)?.vcardArray);
+    if (v.email?.length || v.tel?.length) return v;
+  }
+  return undefined;
+}
+
 function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
   if (!Array.isArray(entities)) return undefined;
   for (const ent of entities) {
-    const roles: string[] = Array.isArray((ent as RdapDoc)?.roles)
-      ? ((ent as RdapDoc).roles as unknown[]).filter((r): r is string => typeof r === "string")
-      : [];
-    if (!roles.some((r) => /registrar/i.test(r))) continue;
+    if (!rolesOf(ent).some((r) => /registrar/i.test(r))) continue;
     const v = parseVcard((ent as RdapDoc)?.vcardArray);
+    const abuse = nestedAbuseVcard((ent as RdapDoc)?.entities);
     const ianaId = Array.isArray((ent as RdapDoc)?.publicIds)
       ? ((ent as RdapDoc).publicIds as Array<RdapDoc>).find((id) =>
           /iana\s*registrar\s*id/i.test(String(id?.type)),
@@ -195,8 +210,9 @@ function extractRegistrar(entities: unknown): RegistrarInfo | undefined {
       name: v.fn || v.org || asString((ent as RdapDoc)?.handle) || undefined,
       ianaId: asString(ianaId),
       url: v.url ?? undefined,
-      email: v.email?.[0],
-      phone: v.tel?.[0],
+      // Fall back to the abuse contact, matching WHOIS "Registrar Abuse Contact Email/Phone"
+      email: v.email?.[0] ?? abuse?.email?.[0],
+      phone: v.tel?.[0] ?? abuse?.tel?.[0],
       street: v.street,
       city: v.locality,
       state: v.region,
@@ -217,11 +233,8 @@ function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[]
   if (!Array.isArray(entities)) return undefined;
   const out: Contact[] = [];
   for (const ent of entities) {
-    const roles: string[] = Array.isArray((ent as RdapDoc)?.roles)
-      ? ((ent as RdapDoc).roles as unknown[]).filter((r): r is string => typeof r === "string")
-      : [];
     const v = parseVcard((ent as RdapDoc)?.vcardArray);
-    const type = roles.find((r) =>
+    const type = rolesOf(ent).find((r) =>
       /registrant|administrative|technical|billing|abuse|reseller/i.test(r),
     );
     if (!type) continue;

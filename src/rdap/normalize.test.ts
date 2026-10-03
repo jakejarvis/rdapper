@@ -350,3 +350,88 @@ test("normalizeRdap ties a redaction path to redactedFields", () => {
   expect(emailOnly.contacts?.[0]?.redactedFields).toEqual(["email"]);
   expect(emailOnly.contacts?.[0]?.redacted).toBe(true);
 });
+
+test("normalizeRdap takes registrar email/phone from the nested abuse entity (gTLD profile)", () => {
+  // Shape of Verisign's registrar entity for google.com
+  const rec = normalizeRdap(
+    "google.com",
+    "com",
+    {
+      ldhName: "GOOGLE.COM",
+      entities: [
+        {
+          roles: ["registrar"],
+          handle: "292",
+          publicIds: [{ type: "IANA Registrar ID", identifier: "292" }],
+          vcardArray: [
+            "vcard",
+            [
+              ["version", {}, "text", "4.0"],
+              ["fn", {}, "text", "MarkMonitor Inc."],
+            ],
+          ],
+          entities: [
+            {
+              roles: ["abuse"],
+              vcardArray: [
+                "vcard",
+                [
+                  ["version", {}, "text", "4.0"],
+                  ["fn", {}, "text", ""],
+                  ["tel", { type: "voice" }, "uri", "tel:+1.2086851750"],
+                  ["email", {}, "text", "abusecomplaints@markmonitor.com"],
+                ],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.registrar).toMatchObject({
+    name: "MarkMonitor Inc.",
+    ianaId: "292",
+    email: "abusecomplaints@markmonitor.com",
+    phone: "+1.2086851750",
+  });
+  // The nested abuse entity belongs to the registrar, not the domain's own contacts
+  expect(rec.contacts).toBeUndefined();
+});
+
+test("normalizeRdap prefers the registrar's own email over its abuse contact", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["registrar"],
+          vcardArray: [
+            "vcard",
+            [
+              ["fn", {}, "text", "Registrar LLC"],
+              ["email", {}, "text", "support@registrar.test"],
+            ],
+          ],
+          entities: [
+            {
+              roles: ["abuse"],
+              vcardArray: [
+                "vcard",
+                [
+                  ["email", {}, "text", "abuse@registrar.test"],
+                  ["tel", {}, "text", "+1.5555550100"],
+                ],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.registrar?.email).toBe("support@registrar.test");
+  expect(rec.registrar?.phone).toBe("+1.5555550100");
+});
