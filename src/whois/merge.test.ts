@@ -57,3 +57,23 @@ test("mergeWhoisRecords keeps the registrar's fuller registrant over the registr
     { type: "registrant", name: "Jane Doe", organization: "Acme Inc", email: "jane@acme.example" },
   ]);
 });
+
+test("mergeWhoisRecords keeps the registry's dates and only fills gaps from the registrar", () => {
+  const registry = normalizeWhois(
+    "google.com",
+    "com",
+    "Domain Name: GOOGLE.COM\nUpdated Date: 2019-09-09T15:39:04Z\nCreation Date: 1997-09-15T04:00:00Z\n",
+    "whois.verisign-grs.com",
+  );
+  const registrar = normalizeWhois(
+    "google.com",
+    "com",
+    "Domain Name: google.com\nUpdated Date: 2024-08-02T02:17:33+0000\nCreation Date: 1997-09-15T07:00:00+0000\nRegistrar Registration Expiration Date: 2028-09-13T07:00:00+0000\n",
+    "whois.markmonitor.com",
+  );
+  const merged = mergeWhoisRecords(registry, [registrar]);
+  expect(merged.updatedDate).toBe("2019-09-09T15:39:04Z");
+  expect(merged.creationDate).toBe("1997-09-15T04:00:00Z");
+  // The registry gave no expiration, so the registrar's fills it
+  expect(merged.expirationDate).toBe("2028-09-13T07:00:00Z");
+});

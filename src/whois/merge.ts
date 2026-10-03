@@ -15,7 +15,7 @@ function dedupeStatuses(a?: DomainRecord["statuses"], b?: DomainRecord["statuses
   return out.length ? out : undefined;
 }
 
-/** Conservative merge: start with base; fill missing scalars; union arrays; prefer more informative dates. */
+/** Conservative merge: start with the registry's record (base); fill missing scalars and dates; union arrays. */
 export function mergeWhoisRecords(base: DomainRecord, others: DomainRecord[]): DomainRecord {
   const merged: DomainRecord = { ...base };
   for (const cur of others) {
@@ -24,10 +24,12 @@ export function mergeWhoisRecords(base: DomainRecord, others: DomainRecord[]): D
     merged.registrar = merged.registrar ?? cur.registrar;
     merged.reseller = merged.reseller ?? cur.reseller;
     merged.statuses = dedupeStatuses(merged.statuses, cur.statuses);
-    // Dates: prefer earliest creation, latest updated/expiration when available
-    merged.creationDate = preferEarliestIso(merged.creationDate, cur.creationDate);
-    merged.updatedDate = preferLatestIso(merged.updatedDate, cur.updatedDate);
-    merged.expirationDate = preferLatestIso(merged.expirationDate, cur.expirationDate);
+    // Dates: the registry's (the base record's) are authoritative, as in RDAP; a registrar's
+    // reply only fills in what the registry lacks. Its own "Updated Date" tracks its records, and
+    // some registrars print local times without a zone.
+    merged.creationDate = merged.creationDate ?? cur.creationDate;
+    merged.updatedDate = merged.updatedDate ?? cur.updatedDate;
+    merged.expirationDate = merged.expirationDate ?? cur.expirationDate;
     merged.deletionDate = merged.deletionDate ?? cur.deletionDate;
     merged.transferLock = Boolean(merged.transferLock || cur.transferLock);
     merged.dnssec = merged.dnssec ?? cur.dnssec;
@@ -40,16 +42,4 @@ export function mergeWhoisRecords(base: DomainRecord, others: DomainRecord[]): D
     merged.rawWhois = cur.rawWhois ?? merged.rawWhois;
   }
   return merged;
-}
-
-function preferEarliestIso(a?: string, b?: string): string | undefined {
-  if (!a) return b;
-  if (!b) return a;
-  return new Date(a) <= new Date(b) ? a : b;
-}
-
-function preferLatestIso(a?: string, b?: string): string | undefined {
-  if (!a) return b;
-  if (!b) return a;
-  return new Date(a) >= new Date(b) ? a : b;
 }
