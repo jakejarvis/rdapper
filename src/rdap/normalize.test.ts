@@ -496,3 +496,17 @@ test("normalizeRdap leaves reseller unset when the entity's name is redacted", (
   );
   expect(rec.reseller).toBeUndefined();
 });
+
+test("normalizeRdap lowercases ldhName and never uses the handle as the name", () => {
+  const upper = normalizeRdap(
+    "google.com",
+    "com",
+    { ldhName: "GOOGLE.COM", handle: "2138514_DOMAIN_COM-VRSN" },
+    [],
+  );
+  expect(upper.domain).toBe("google.com");
+  expect(upper.punycodeName).toBe("google.com");
+  const noName = normalizeRdap("example.com", "com", { handle: "2336799_DOMAIN_COM-VRSN" }, []);
+  expect(noName.domain).toBe("example.com");
+  expect(noName.punycodeName).toBeUndefined();
+});

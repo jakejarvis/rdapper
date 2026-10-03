@@ -22,8 +22,10 @@ export function normalizeRdap(
 ): DomainRecord {
   const doc = (rdap ?? {}) as RdapDoc;
 
-  // Prefer ldhName (punycode) and unicodeName if provided
-  const ldhName: string | undefined = asString(doc.ldhName) || asString(doc.handle);
+  // Prefer ldhName (punycode, which Verisign writes in uppercase) and unicodeName if provided.
+  // The handle ("2336799_DOMAIN_COM-VRSN") is a registry ID, not a name.
+  const ldhName: string | undefined =
+    asString(doc.ldhName)?.toLowerCase().replace(/\.$/, "") || undefined;
   const unicodeName: string | undefined = asString(doc.unicodeName);
 
   // Registrar entity can be provided with role "registrar"
