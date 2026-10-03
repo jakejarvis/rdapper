@@ -1,59 +1,63 @@
 // Lightweight date parsing helpers to avoid external dependencies.
 // We aim to parse common RDAP and WHOIS date representations and return a UTC ISO string.
+// A value without a timezone is read as UTC, never in the host's local time.
+
+type Field = string | number | undefined;
+
+// Explicit formats seen in RDAP/WHOIS output, each with how to build the timestamp
+const FORMATS: Array<[RegExp, (m: RegExpMatchArray) => number | undefined]> = [
+  // Year first: 2023-01-02, 2023/01/02 03:04:05 (.jp), 2023-01-02T03:04:05.123+05:30,
+  // and "1996. 07. 20." (.kr)
+  [
+    /^(\d{4})([-/.])\s?(\d{1,2})\2\s?(\d{1,2})\.?(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?)?\s*(Z|UTC|GMT|[+-]\d{2}(?::?\d{2})?)?$/i,
+    (m) => utc(m[1], m[3], m[4], m[5], m[6], m[7], m[8]),
+  ],
+  // Day first: 21-07-2026 (.il, .hk), 10.03.2008 12:00:00 (.rs, .mk), 03/10/1991 00:00:00 (.pt).
+  // US order is assumed only when the second field can't be a month.
+  [
+    /^(\d{1,2})([-/.])(\d{1,2})\2(\d{4})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\s*(Z|UTC|GMT|[+-]\d{2}(?::?\d{2})?)?$/i,
+    (m) =>
+      Number(m[3]) > 12 && Number(m[1]) <= 12
+        ? utc(m[4], m[1], m[3], m[5], m[6], m[7], m[8])
+        : utc(m[4], m[3], m[1], m[5], m[6], m[7], m[8]),
+  ],
+  // 02-Jan-2023
+  [/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/, (m) => utc(m[3], monthOf(m[2]), m[1])],
+  // Jan 02 2023
+  [/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/, (m) => utc(m[3], monthOf(m[1]), m[2])],
+  // 20261004161638 (compact YYYYMMDDHHMMSS, used by .ua)
+  [/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, (m) => utc(m[1], m[2], m[3], m[4], m[5], m[6])],
+  // 20260319 (compact YYYYMMDD, used by .br)
+  [/^(\d{4})(\d{2})(\d{2})$/, (m) => utc(m[1], m[2], m[3])],
+  // 28th December 2018 [at 05:54:43[.861]] (used by .gg/.je)
+  [
+    /^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})(?:\s+at\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/,
+    (m) => utc(m[3], monthOf(m[2]), m[1], m[4], m[5], m[6]),
+  ],
+];
+
+// Zone names the formats above and the native parser don't know: "(JST)" (.jp), "CLST"/"CLT" (.cl)
+const ZONE_OFFSETS: Record<string, string> = { JST: "+0900", CLT: "-0400", CLST: "-0300" };
+
 export function toISO(dateLike: string | number | Date | undefined | null): string | undefined {
   if (dateLike == null) return undefined;
   if (dateLike instanceof Date) return toIsoFromDate(dateLike);
   if (typeof dateLike === "number") return toIsoFromDate(new Date(dateLike));
-  const raw = String(dateLike).trim();
+  const raw = normalizeZone(String(dateLike).trim());
   if (!raw) return undefined;
-  // Try several structured formats seen in WHOIS outputs (treat as UTC when no TZ provided)
-  const tryFormats = [
-    // 2023-01-02 03:04:05Z or without Z
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:Z|([+-]\d{2})(?::?(\d{2}))?)?$/,
-    // 2023/01/02 03:04:05
-    /^(\d{4})\/(\d{2})\/(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:Z|([+-]\d{2})(?::?(\d{2}))?)?$/,
-    // 02-Jan-2023
-    /^(\d{2})-([A-Za-z]{3})-(\d{4})$/,
-    // 21-07-2026 (DD-MM-YYYY used by .il, .hk)
-    /^(\d{2})-(\d{2})-(\d{4})$/,
-    // Jan 02 2023
-    /^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/,
-    // 20261004161638 (compact YYYYMMDDHHMMSS, used by .ua)
-    /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/,
-    // 20260319 (compact YYYYMMDD, used by .br)
-    /^(\d{4})(\d{2})(\d{2})$/,
-  ];
-  for (const re of tryFormats) {
+  for (const [re, build] of FORMATS) {
     const m = raw.match(re);
     if (!m) continue;
-    const d = parseDateWithRegex(m, re);
-    if (d) return toIsoFromDate(d);
+    const ms = build(m);
+    if (ms !== undefined) return toIsoFromDate(new Date(ms));
   }
-  // 28th December 2018 [at 05:54:43[.861]] (used by .gg/.je)
-  const ordinal = raw.match(
-    /^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})(?:\s+at\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/,
-  );
-  if (ordinal) {
-    const [, dd, mon, yyyy, hh, mm, ss] = ordinal;
-    const monthIdx = MONTHS[mon?.toLowerCase() ?? ""];
-    if (monthIdx !== undefined) {
-      return toIsoFromDate(
-        new Date(
-          Date.UTC(
-            Number(yyyy),
-            monthIdx,
-            Number(dd),
-            Number(hh ?? 0),
-            Number(mm ?? 0),
-            Number(ss ?? 0),
-          ),
-        ),
-      );
-    }
+  // Anything else goes to the native parser (RFC 2822, "Tue Jan 01 2000", ...), which reads a
+  // value without a zone as local time: pin those to UTC.
+  const hasZone = /\b(?:UTC?|GMT|[ECMP][SD]T)\b|(?:\dZ|[+-]\d{2}:?\d{2})$/i.test(raw);
+  for (const candidate of hasZone ? [raw] : [`${raw} UTC`, `${raw}Z`]) {
+    const native = new Date(candidate);
+    if (!Number.isNaN(native.getTime())) return toIsoFromDate(native);
   }
-  // Fallback to native Date parsing (handles ISO and RFC2822 with TZ)
-  const native = new Date(raw);
-  if (!Number.isNaN(native.getTime())) return toIsoFromDate(native);
   return undefined;
 }
 
@@ -74,20 +78,77 @@ export function toISOFromTokens(value: string | undefined | null): string | unde
   return undefined;
 }
 
+/**
+ * Rewrite zone suffixes as numeric offsets ("(UTC+8)" from .tw, the names in ZONE_OFFSETS), and
+ * drop the stray "Z" after an explicit offset ("+0000Z", seen in RDAP).
+ */
+function normalizeZone(raw: string): string {
+  return raw
+    .replace(
+      /\s*\((?:UTC|GMT)([+-])(\d{1,2})(?::?(\d{2}))?\)$/i,
+      (_m, sign: string, hh: string, mm: string | undefined) =>
+        ` ${sign}${hh.padStart(2, "0")}${mm ?? "00"}`,
+    )
+    .replace(/\s*\(?\b([A-Z]{3,4})\)?$/, (whole, name: string) => {
+      const offset = ZONE_OFFSETS[name];
+      return offset ? ` ${offset}` : whole;
+    })
+    .replace(/([+-]\d{2}:?\d{2})Z$/i, "$1");
+}
+
 const MONTHS: Record<string, number> = {
-  jan: 0,
-  feb: 1,
-  mar: 2,
-  apr: 3,
-  may: 4,
-  jun: 5,
-  jul: 6,
-  aug: 7,
-  sep: 8,
-  oct: 9,
-  nov: 10,
-  dec: 11,
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
 };
+
+function monthOf(name: string | undefined): number | undefined {
+  return MONTHS[name?.toLowerCase() ?? ""];
+}
+
+/**
+ * Epoch milliseconds for a UTC calendar time, shifted by an optional zone ("Z", "+0530", "-05").
+ * Out-of-range fields (month 13, 31 February) give undefined rather than rolling over.
+ */
+function utc(
+  year: Field,
+  month: Field,
+  day: Field,
+  hours: Field = 0,
+  minutes: Field = 0,
+  seconds: Field = 0,
+  zone?: string,
+): number | undefined {
+  const y = Number(year);
+  const mo = Number(month);
+  const d = Number(day);
+  const h = Number(hours);
+  const mi = Number(minutes);
+  const s = Number(seconds);
+  if (![y, mo, d, h, mi, s].every(Number.isFinite) || h > 23 || mi > 59 || s > 59) {
+    return undefined;
+  }
+  const ms = Date.UTC(y, mo - 1, d, h, mi, s);
+  const check = new Date(ms);
+  if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d) return undefined;
+  return ms - offsetMs(zone);
+}
+
+function offsetMs(zone: string | undefined): number {
+  const m = zone?.match(/^([+-])(\d{2}):?(\d{2})?$/);
+  if (!m) return 0; // no zone, "Z", "UTC", "GMT"
+  const sign = m[1] === "-" ? -1 : 1;
+  return sign * (Number(m[2]) * 60 + Number(m[3] ?? 0)) * 60 * 1000;
+}
 
 function toIsoFromDate(d: Date): string | undefined {
   try {
@@ -107,66 +168,4 @@ function toIsoFromDate(d: Date): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function parseDateWithRegex(m: RegExpMatchArray, _re: RegExp): Date | undefined {
-  const monthMap: Record<string, number> = {
-    jan: 0,
-    feb: 1,
-    mar: 2,
-    apr: 3,
-    may: 4,
-    jun: 5,
-    jul: 6,
-    aug: 7,
-    sep: 8,
-    oct: 9,
-    nov: 10,
-    dec: 11,
-  };
-  try {
-    // If the matched string contains time components, parse as Y-M-D H:M:S
-    if (m[0].includes(":") || /^\d{14}$/.test(m[0])) {
-      const [_, y, mo, d, hh, mm, ss, offH, offM] = m;
-      if (!y || !mo || !d || !hh || !mm || !ss) return undefined;
-      // Base time as UTC
-      let dt = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss));
-      // Apply timezone offset if present (e.g., +0000, -0500, +05:30)
-      if (offH) {
-        const sign = offH.startsWith("-") ? -1 : 1;
-        const hours = Math.abs(Number(offH));
-        const minutes = offM ? Number(offM) : 0;
-        const offsetMs = sign * (hours * 60 + minutes) * 60 * 1000;
-        // The captured time is local with an explicit offset; convert to UTC
-        dt -= offsetMs;
-      }
-      return new Date(dt);
-    }
-    // Compact YYYYMMDD
-    if (/^\d{8}$/.test(m[0])) {
-      const [_, y, mo, d] = m;
-      return new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
-    }
-    // If the matched string contains hyphens, check if numeric (DD-MM-YYYY) or alpha (DD-MMM-YYYY)
-    if (m[0].includes("-")) {
-      const [_, dd, monStr, yyyy] = m;
-      if (!monStr || !dd || !yyyy) return undefined;
-      // Check if month component is numeric (DD-MM-YYYY) or alphabetic (DD-MMM-YYYY)
-      if (/^\d+$/.test(monStr)) {
-        // DD-MM-YYYY format (e.g., 21-07-2026)
-        return new Date(Date.UTC(Number(yyyy), Number(monStr) - 1, Number(dd)));
-      }
-      // DD-MMM-YYYY format (e.g., 02-Jan-2023)
-      const mon = monthMap[monStr.toLowerCase()];
-      return new Date(Date.UTC(Number(yyyy), mon, Number(dd)));
-    }
-    // Otherwise treat as MMM DD YYYY
-    const [_, monStr, dd, yyyy] = m;
-    if (!monStr || !dd || !yyyy) return undefined;
-    const mon = monthMap[monStr.toLowerCase()];
-    return new Date(Date.UTC(Number(yyyy), mon, Number(dd)));
-  } catch {
-    // fall through to undefined
-  }
-  return undefined;
 }
