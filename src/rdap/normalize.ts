@@ -50,6 +50,10 @@ export function normalizeRdap(
   // Contacts: RDAP entities include roles like registrant, administrative, technical, billing, abuse
   const contacts: Contact[] | undefined = extractContacts(doc.entities as unknown, redactions);
 
+  // The reseller is an entity with the "reseller" role (e.g. .nl), so it is also a contact
+  const resellerContact = contacts?.find((c) => c.type === "reseller");
+  const reseller = resellerContact?.organization || resellerContact?.name || undefined;
+
   // Derive privacy flag from registrant name/org keywords or RFC 9537 registrant redactions
   const registrant = contacts?.find((c) => c.type === "registrant");
   const privacyEnabled =
@@ -136,7 +140,7 @@ export function normalizeRdap(
     punycodeName: ldhName || undefined,
     registry: undefined, // RDAP rarely includes a clean registry operator name
     registrar: registrar,
-    reseller: undefined,
+    reseller,
     statuses: statuses,
     creationDate,
     updatedDate,

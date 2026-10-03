@@ -384,3 +384,16 @@ Domain Status: OK-UNTIL 20261004161638
     "client update prohibited (https://icann.org/epp#clientUpdateProhibited)",
   );
 });
+
+test("WHOIS 'Reseller Name' (.au, .th) sets reseller", () => {
+  const text =
+    "Domain Name: example.com.au\nRegistrar Name: Registrar Pty Ltd\nReseller Name: Reseller Pty Ltd\n";
+  expect(normalizeWhois("example.com.au", "com.au", text, undefined).reseller).toBe(
+    "Reseller Pty Ltd",
+  );
+  // An empty field (common in .au) stays unset
+  expect(
+    normalizeWhois("example.com.au", "com.au", "Domain Name: x\nReseller Name: \n", undefined)
+      .reseller,
+  ).toBeUndefined();
+});

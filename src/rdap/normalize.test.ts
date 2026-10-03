@@ -453,3 +453,46 @@ test("normalizeRdap reports EPP status codes and keeps the RDAP spelling in raw"
     { status: "locked", raw: "locked" },
   ]);
 });
+
+test("normalizeRdap sets reseller from the reseller entity (SIDN, .nl)", () => {
+  const rec = normalizeRdap(
+    "nu.nl",
+    "nl",
+    {
+      ldhName: "nu.nl",
+      entities: [
+        {
+          roles: ["registrar"],
+          handle: "0000",
+          vcardArray: ["vcard", [["fn", {}, "text", "Registrar.eu"]]],
+        },
+        {
+          roles: ["reseller"],
+          handle: "REDACTED-BY-SIDN",
+          vcardArray: ["vcard", [["fn", {}, "text", "DPG Media Group nv"]]],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.reseller).toBe("DPG Media Group nv");
+  expect(rec.contacts?.find((c) => c.type === "reseller")?.name).toBe("DPG Media Group nv");
+});
+
+test("normalizeRdap leaves reseller unset when the entity's name is redacted", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      entities: [
+        {
+          roles: ["reseller"],
+          vcardArray: ["vcard", [["fn", {}, "text", "REDACTED FOR PRIVACY"]]],
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.reseller).toBeUndefined();
+});

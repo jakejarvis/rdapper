@@ -254,7 +254,7 @@ export function normalizeWhois(
     punycodeName: undefined,
     registry: undefined,
     registrar,
-    reseller: anyValue(map, ["reseller"]) || undefined,
+    reseller: anyValue(map, ["reseller", "reseller name"]) || undefined, // "reseller name": .au, .th
     statuses,
     creationDate,
     updatedDate,
