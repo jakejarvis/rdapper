@@ -90,6 +90,9 @@ async function runLookup(
   opts: LookupOptions | undefined,
   ctx: LookupContext,
 ): Promise<LookupResult> {
+  if (opts?.rdapOnly && opts?.whoisOnly) {
+    return failure(ctx, "invalid_input", "rdapOnly and whoisOnly can't both be set");
+  }
   // Query the ASCII form: "  München.DE." becomes "xn--mnchen-3ya.de"
   const domain = toAsciiDomain(input);
   if (!domain || !isLikelyDomain(domain)) {

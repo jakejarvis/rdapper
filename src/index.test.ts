@@ -119,6 +119,14 @@ describe("lookup orchestration", () => {
     );
   });
 
+  it("rejects rdapOnly together with whoisOnly without querying anything", async () => {
+    const res = await lookup("example.com", { rdapOnly: true, whoisOnly: true, timeoutMs: 200 });
+    expect(res.ok).toBe(false);
+    expect(res.errorCode).toBe("invalid_input");
+    expect(vi.mocked(rdapClient.fetchRdapDomain)).not.toHaveBeenCalled();
+    expect(vi.mocked(whoisClient.whoisQuery)).not.toHaveBeenCalled();
+  });
+
   it("respects whoisOnly to skip RDAP entirely", async () => {
     const res = await lookup("example.com", {
       timeoutMs: 200,

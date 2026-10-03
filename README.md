@@ -433,7 +433,7 @@ const result = await lookup("example.com", {
 - `timeoutMs?: number` – Timeout for each individual network operation (default `10000`). A lookup performs several operations in sequence, so see [Timeouts and diagnostics](#timeouts-and-diagnostics) for the worst case. A value that is not a finite number > 0 disables the timeout.
 - `deadlineMs?: number` – Overall deadline for the whole lookup (default: none). When it elapses, in-flight requests and WHOIS sockets are cancelled and the result has `errorCode: "timeout"`.
 - `rdapOnly?: boolean` – Only attempt RDAP; do not fall back to WHOIS.
-- `whoisOnly?: boolean` – Skip RDAP and query WHOIS directly.
+- `whoisOnly?: boolean` – Skip RDAP and query WHOIS directly. Setting both `rdapOnly` and `whoisOnly` fails with `invalid_input`.
 - `followWhoisReferral?: boolean` – Follow registrar referral from the TLD WHOIS (default `true`).
 - `maxWhoisReferralHops?: number` – Maximum registrar WHOIS referral hops to follow (default `2`).
 - `rdapFollowLinks?: boolean` – Follow related/entity RDAP links to enrich data (default `true`).

@@ -339,9 +339,9 @@ export interface LookupOptions {
    * in-flight requests and WHOIS sockets are cancelled and the result has `errorCode: "timeout"`.
    */
   deadlineMs?: number;
-  /** Don't fall back to WHOIS */
+  /** Don't fall back to WHOIS (not combinable with `whoisOnly`) */
   rdapOnly?: boolean;
-  /** Don't attempt RDAP */
+  /** Don't attempt RDAP (not combinable with `rdapOnly`) */
   whoisOnly?: boolean;
   /** Follow referral server (default true) */
   followWhoisReferral?: boolean;
@@ -479,7 +479,8 @@ export interface LookupResult {
 /**
  * Machine-readable reason a lookup (or one attempt within it) failed.
  *
- * - `invalid_input`: the input does not look like a domain name
+ * - `invalid_input`: the input does not look like a domain name, or the options conflict
+ *   (`rdapOnly` with `whoisOnly`)
  * - `invalid_tld`: the TLD is not valid
  * - `timeout`: any timeout, including the overall `deadlineMs`
  * - `aborted`: the caller's `AbortSignal` fired
