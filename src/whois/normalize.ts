@@ -5,8 +5,11 @@ import { isEppStatus, normalizeEppStatus } from "../lib/status";
 import { parseKeyValueBlocks, parseKeyValueLines } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
-// Common WHOIS availability phrases seen across registries/registrars
-const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
+// Phrases registries use to say a name is not registered. They also turn up in the remarks and
+// footers of real records ("only available for registration under certain conditions" on .ir,
+// "Registrant Fax: not found", "This WHOIS service is free of charge"), so they count only when
+// the reply carries no registration data.
+const WHOIS_AVAILABLE_PHRASES: RegExp[] = [
   /\bno match\b/i,
   /\bnot found\b/i,
   /\bno entries found\b/i,
@@ -16,7 +19,6 @@ const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
   /\bno data was found\b/i,
   /\bavailable for registration\b/i,
   /\bdomain\s+available\b/i,
-  /\bdomain status[:\s]+available\b/i,
   /\bobject does not exist\b/i,
   /\bthe queried object does not exist\b/i,
   /\bqueried object does not exist\b/i,
@@ -26,12 +28,18 @@ const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
   /\bunassignable\b/i,
   /\bis free\b/i,
   // Common variants across ccTLDs/registrars
-  /\bstatus:\s*free\b/i,
-  /\bstatus:\s*available\b/i,
   /\bno object found\b/i,
   /\bobject_not_found\b/i,
   /\bno se encuentra registrado\b/i, // Spanish: "not found registered"
   /\bnicht gefunden\b/i, // German: "not found"
+];
+
+// Statuses that mark a name unregistered even though the record still carries data, as a name
+// being released keeps its old dates and nameservers
+const WHOIS_AVAILABLE_STATUSES: RegExp[] = [
+  /\bdomain status[:\s]+available\b/i,
+  /\bstatus:\s*free\b/i,
+  /\bstatus:\s*available\b/i,
   /\bpending release\b/i, // often signals not registered/being deleted
   /\brelease process:\s*waiting\b/i, // .br: expired, awaiting release
 ];
@@ -41,7 +49,13 @@ const WHOIS_AVAILABLE_PATTERNS: RegExp[] = [
  */
 export function isAvailableByWhois(text: string | undefined): boolean {
   if (!text) return false;
-  return WHOIS_AVAILABLE_PATTERNS.some((re) => re.test(text));
+  return !normalizeWhois("", "", text, undefined).isRegistered;
+}
+
+/** Whether a reply says the name is unregistered, given whether it carries registration data. */
+function saysAvailable(text: string, hasRegistrationData: boolean): boolean {
+  if (WHOIS_AVAILABLE_STATUSES.some((re) => re.test(text))) return true;
+  return !hasRegistrationData && WHOIS_AVAILABLE_PHRASES.some((re) => re.test(text));
 }
 
 /**
@@ -251,7 +265,10 @@ export function normalizeWhois(
   const record: DomainRecord = {
     domain,
     tld,
-    isRegistered: !isAvailableByWhois(whoisText),
+    isRegistered: !saysAvailable(
+      whoisText,
+      !!(creationDate || expirationDate || registrar || nameservers?.length),
+    ),
     isIDN: /(^|\.)xn--/i.test(domain),
     unicodeName: undefined,
     punycodeName: undefined,

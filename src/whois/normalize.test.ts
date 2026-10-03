@@ -457,3 +457,31 @@ nserver:          ho1.ns.hostmaster.ua
   const rec = normalizeWhois("hostmaster.ua", "ua", text, "whois.ua");
   expect(rec.nameservers?.map((n) => n.host)).toEqual(["bg.ns.ua", "ho1.ns.hostmaster.ua"]);
 });
+
+test("WHOIS availability phrases in remarks of a real record don't mark it available", () => {
+  // Excerpt of whois.nic.ir for nic.ir: the remarks mention "available for registration"
+  const ir = `
+domain:		nic.ir
+holder-c:	ir00-irnic
+nserver:	ns1.nic.ir
+nserver:	ns2.nic.ir
+source:		IRNIC
+
+remarks:	This domain is only available for registration under certain conditions
+`;
+  expect(normalizeWhois("nic.ir", "ir", ir, "whois.nic.ir").isRegistered).toBe(true);
+  const fax =
+    "Domain Name: example.com\nCreation Date: 2020-01-01T00:00:00Z\nRegistrant Fax: not found\n";
+  expect(normalizeWhois("example.com", "com", fax, undefined).isRegistered).toBe(true);
+  expect(isAvailableByWhois(ir)).toBe(false);
+});
+
+test("WHOIS availability phrases still mark a reply with no record data available", () => {
+  const text =
+    'No match for "EXAMPLE-AVAILABLE.COM".\n>>> Last update of whois database: 2026-10-03T18:00:00Z <<<\n';
+  expect(normalizeWhois("example-available.com", "com", text, undefined).isRegistered).toBe(false);
+  // A release status wins even though the old record data is still shown
+  const releasing =
+    "domain: example.com.br\ncreated: 20100101\nnserver: ns1.example.com.br\nstatus: release process: waiting\n";
+  expect(normalizeWhois("example.com.br", "com.br", releasing, undefined).isRegistered).toBe(false);
+});
