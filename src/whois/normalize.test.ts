@@ -582,3 +582,27 @@ test("WHOIS nameserver keys and continuation lines across ccTLD layouts", () => 
   ).toEqual(["auth01.ns.dk-hostmaster.dk"]);
   expect(hosts("nic.lv", "Domain: nic.lv\nNserver: -\n")).toBeUndefined();
 });
+
+test("WHOIS date keys and forms across ccTLDs", () => {
+  const rec = (text: string) =>
+    normalizeWhois("example.test", "test", `domain: example.test\n${text}`, undefined);
+  // .th, .sk, .by, .kr keys
+  expect(rec("Created date:   30 Mar 1999\nExp date:   01 Apr 2030\n")).toMatchObject({
+    creationDate: "1999-03-30T00:00:00Z",
+    expirationDate: "2030-04-01T00:00:00Z",
+  });
+  expect(rec("Valid Until: 2027-06-10\n").expirationDate).toBe("2027-06-10T00:00:00Z");
+  expect(rec("Update Date: 2025-10-21\n").updatedDate).toBe("2025-10-21T00:00:00Z");
+  expect(rec("Last Updated Date           : 2025. 05. 09.\n").updatedDate).toBe(
+    "2025-05-09T00:00:00Z",
+  );
+  // .il lists every change, oldest first
+  expect(
+    rec(
+      "changed: domain-registrar AT isoc.org.il 19960111 (Assigned)\nchanged: domain-registrar AT isoc.org.il 20260930 (Changed)\n",
+    ).updatedDate,
+  ).toBe("2026-09-30T00:00:00Z");
+  // .at keeps the time; .ro's "Before 2001" is not a date
+  expect(rec("changed:        20200427 16:03:40\n").updatedDate).toBe("2020-04-27T16:03:40Z");
+  expect(rec("Registered On: Before 2001\n").creationDate).toBeUndefined();
+});

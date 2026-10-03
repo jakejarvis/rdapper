@@ -76,7 +76,8 @@ export function normalizeWhois(
   // block beats a higher-priority key in a later one: FRED registries (.cz, .mk) repeat "created"
   // in every contact and nameserver block. The whole-reply map covers a header whose value sits
   // past a blank line.
-  const dateOf = (keys: string[]) => firstDate(blocks, keys) ?? firstDate([map], keys);
+  const dateOf = (keys: string[], latest = false) =>
+    firstDate(blocks, keys, latest) ?? firstDate([map], keys, latest);
   // .gg/.je list dates as sentences under "Relevant dates:", e.g. "Registered on 28th December 2018 at 05:54:43.861"
   const relevantDate = (label: RegExp) =>
     toISOFromTokens(map["relevant dates"]?.find((l) => label.test(l))?.replace(label, ""));
@@ -96,25 +97,31 @@ export function normalizeWhois(
       "registration time", // .cn
       "domain record activated", // .edu
       "domain registered",
-      "registered date", // .co.jp
+      "registered date", // .co.jp, .kr
+      "created date", // .th
       "assigned", // .il
     ]) ??
     relevantDate(/^registered on\s+/i) ??
     recordDate(/^[ \t]*Record created on[ \t]+(.+?)\.?$/im);
   const updatedDate =
-    dateOf([
-      "updated date",
-      "updated",
-      "last updated",
-      "last updated on", // .mx
-      "last update", // .co.jp
-      "last-update", // .fr
-      "last modified",
-      "modified",
-      "changed",
-      "modification date",
-      "domain record last updated", // .edu
-    ]) ?? recordDate(/^[ \t]*Record last updated on[ \t]+(.+?)\.?$/im);
+    dateOf(
+      [
+        "updated date",
+        "updated",
+        "last updated",
+        "last updated on", // .mx
+        "last update", // .co.jp
+        "last-update", // .fr
+        "last modified",
+        "modified",
+        "changed",
+        "modification date",
+        "last updated date", // .kr
+        "update date", // .by
+        "domain record last updated", // .edu
+      ],
+      true,
+    ) ?? recordDate(/^[ \t]*Record last updated on[ \t]+(.+?)\.?$/im);
   const expirationDate =
     dateOf([
       "registry expiry date",
@@ -137,6 +144,8 @@ export function normalizeWhois(
       "renewal date", // .pl
       "validity", // .il
       "record will expire on",
+      "exp date", // .th
+      "valid until", // .sk
     ]) ?? recordDate(/^[ \t]*Record expires on[ \t]+(.+?)\.?$/im);
 
   // Registrar info (thin registries like .com/.net require referral follow for full data)
@@ -344,14 +353,20 @@ function parseStatusLine(line: string): string[] {
     .filter(Boolean);
 }
 
-/** First value that parses as a date, taking blocks in order and keys by priority within each. */
-function firstDate(blocks: Array<Record<string, string[]>>, keys: string[]): string | undefined {
+/**
+ * First value that parses as a date, taking blocks in order and keys by priority within each.
+ * With `latest`, the latest of the first matching key's values instead (.il lists every
+ * "changed:" line, oldest first).
+ */
+function firstDate(
+  blocks: Array<Record<string, string[]>>,
+  keys: string[],
+  latest = false,
+): string | undefined {
   for (const block of blocks) {
     for (const k of keys) {
-      for (const value of block[k] ?? []) {
-        const iso = toISOFromTokens(value);
-        if (iso) return iso;
-      }
+      const dates = (block[k] ?? []).map((v) => toISOFromTokens(v)).filter((d) => d !== undefined);
+      if (dates.length) return latest ? dates.sort().at(-1) : dates[0];
     }
   }
   return undefined;

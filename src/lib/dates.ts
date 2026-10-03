@@ -27,8 +27,11 @@ const FORMATS: Array<[RegExp, (m: RegExpMatchArray) => number | undefined]> = [
   [/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/, (m) => utc(m[3], monthOf(m[1]), m[2])],
   // 20261004161638 (compact YYYYMMDDHHMMSS, used by .ua)
   [/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, (m) => utc(m[1], m[2], m[3], m[4], m[5], m[6])],
-  // 20260319 (compact YYYYMMDD, used by .br)
-  [/^(\d{4})(\d{2})(\d{2})$/, (m) => utc(m[1], m[2], m[3])],
+  // 20260319 (compact YYYYMMDD, used by .br), optionally with a time: 20200427 16:03:40 (.at)
+  [
+    /^(\d{4})(\d{2})(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2}))?$/,
+    (m) => utc(m[1], m[2], m[3], m[4], m[5], m[6]),
+  ],
   // 28th December 2018 [at 05:54:43[.861]] (used by .gg/.je)
   [
     /^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})(?:\s+at\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/,
@@ -51,8 +54,12 @@ export function toISO(dateLike: string | number | Date | undefined | null): stri
     const ms = build(m);
     if (ms !== undefined) return toIsoFromDate(new Date(ms));
   }
-  // Anything else goes to the native parser (RFC 2822, "Tue Jan 01 2000", ...), which reads a
-  // value without a zone as local time: pin those to UTC.
+  // Anything else goes to the native parser (RFC 2822, "Tue Jan 01 2000", ...). It accepts any
+  // word next to a year ("Before 2001" on .ro, "since 1999"), so require a month name or a
+  // second number. It reads a value without a zone as local time: pin those to UTC.
+  if (!/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(raw) && !/\d\D+\d/.test(raw)) {
+    return undefined;
+  }
   const hasZone = /\b(?:UTC?|GMT|[ECMP][SD]T)\b|(?:\dZ|[+-]\d{2}:?\d{2})$/i.test(raw);
   for (const candidate of hasZone ? [raw] : [`${raw} UTC`, `${raw}Z`]) {
     const native = new Date(candidate);
