@@ -510,3 +510,46 @@ test("normalizeRdap lowercases ldhName and never uses the handle as the name", (
   expect(noName.domain).toBe("example.com");
   expect(noName.punycodeName).toBeUndefined();
 });
+
+test("normalizeRdap combines registry and registrar copies of a contact and splits multi-role entities", () => {
+  const vcard = (props: unknown[][]) => ["vcard", props];
+  const rec = normalizeRdap(
+    "example.org",
+    "org",
+    {
+      ldhName: "example.org",
+      entities: [
+        // Registry copy (redacted), then the registrar's (full), as a merged .org document lists them
+        {
+          roles: ["registrant"],
+          vcardArray: vcard([
+            ["fn", {}, "text", ""],
+            ["org", {}, "text", "Acme Inc"],
+          ]),
+        },
+        { roles: ["technical"], vcardArray: vcard([["fn", {}, "text", ""]]) },
+        {
+          roles: ["registrant"],
+          vcardArray: vcard([
+            ["fn", {}, "text", "Jane Doe"],
+            ["org", {}, "text", "Acme Inc"],
+            ["email", {}, "text", "jane@acme.example"],
+          ]),
+        },
+        {
+          roles: ["administrative", "technical"],
+          vcardArray: vcard([
+            ["fn", {}, "text", "Ops Team"],
+            ["email", {}, "text", "ops@acme.example"],
+          ]),
+        },
+      ],
+    },
+    [],
+  );
+  expect(rec.contacts?.map((c) => [c.type, c.name, c.email])).toEqual([
+    ["registrant", "Jane Doe", "jane@acme.example"],
+    ["tech", "Ops Team", "ops@acme.example"],
+    ["admin", "Ops Team", "ops@acme.example"],
+  ]);
+});

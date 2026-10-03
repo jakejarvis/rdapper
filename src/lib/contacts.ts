@@ -161,3 +161,57 @@ export function isPrivacyContact(contact: Contact | undefined): boolean {
     !!contact?.redactedFields?.some((f) => f === "name" || f === "organization")
   );
 }
+
+const IDENTITY_FIELDS = ["name", "organization", "email"] as const;
+
+const identity = (v: string | string[] | undefined) =>
+  (Array.isArray(v) ? v.join("|") : (v ?? "")).trim().toLowerCase();
+
+/** Same role, and no name/organization/email that tells them apart. */
+function sameParty(a: Contact, b: Contact): boolean {
+  if (a.type !== b.type) return false;
+  return IDENTITY_FIELDS.every((f) => {
+    const [x, y] = [identity(a[f]), identity(b[f])];
+    return !x || !y || x === y;
+  });
+}
+
+const filledFields = (c: Contact) =>
+  Object.values(c).filter((v) => v !== undefined && !(Array.isArray(v) && !v.length)).length;
+
+/**
+ * Combine finalized contacts that describe the same party, as when a registry and a registrar
+ * both list the registrant (one redacted, one full). The fuller contact wins and the other fills
+ * its gaps; a field stays in `redactedFields` only when neither supplied it. Contacts that differ
+ * in name, organization, or email are kept apart.
+ */
+export function mergeContacts(contacts: Contact[] | undefined): Contact[] | undefined {
+  const out: Contact[] = [];
+  for (const contact of contacts ?? []) {
+    const i = out.findIndex((c) => sameParty(c, contact));
+    const prev = out[i];
+    if (!prev) {
+      out.push(contact);
+      continue;
+    }
+    const [base, other] =
+      filledFields(contact) > filledFields(prev) ? [contact, prev] : [prev, contact];
+    const merged: Contact = { ...base };
+    const record = merged as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(other)) {
+      if (record[key] === undefined) record[key] = value;
+    }
+    const redactedFields = [
+      ...new Set([...(prev.redactedFields ?? []), ...(contact.redactedFields ?? [])]),
+    ].filter((f) => record[f] === undefined);
+    merged.redactedFields = redactedFields.length
+      ? REPORTED_FIELDS.filter((f) => redactedFields.includes(f))
+      : undefined;
+    // Redaction known only as "something" (no fields) can't be ruled out by the other source
+    const unspecified = [prev, contact].some((c) => c.redacted && !c.redactedFields?.length);
+    merged.redacted =
+      merged.redactedFields || unspecified || merged.privacyService ? true : undefined;
+    out[i] = merged;
+  }
+  return out.length ? out : undefined;
+}

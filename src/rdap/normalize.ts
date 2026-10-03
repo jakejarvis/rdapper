@@ -1,5 +1,5 @@
 import { resolveCountry } from "../lib/countries";
-import { finalizeContact, isPrivacyContact, redactionFields } from "../lib/contacts";
+import { finalizeContact, isPrivacyContact, mergeContacts, redactionFields } from "../lib/contacts";
 import { toISO } from "../lib/dates";
 import { mergeNameservers } from "../lib/nameservers";
 import { normalizeEppStatus } from "../lib/status";
@@ -240,51 +240,56 @@ function redactionTargetsRole(r: Redaction, role: string): boolean {
   return re.test(r.prePath ?? "") || re.test(r.name);
 }
 
+const CONTACT_ROLES: Record<string, Contact["type"]> = {
+  registrant: "registrant",
+  administrative: "admin",
+  technical: "tech",
+  billing: "billing",
+  abuse: "abuse",
+  reseller: "reseller",
+};
+
+/**
+ * One contact per entity and role (an entity may be both administrative and technical), with a
+ * registry's and a registrar's copy of the same party combined.
+ */
 function extractContacts(entities: unknown, redactions?: Redaction[]): Contact[] | undefined {
   if (!Array.isArray(entities)) return undefined;
   const out: Contact[] = [];
   for (const ent of entities) {
     const v = parseVcard((ent as RdapDoc)?.vcardArray);
-    const type = rolesOf(ent).find((r) =>
-      /registrant|administrative|technical|billing|abuse|reseller/i.test(r),
-    );
-    if (!type) continue;
-    const map: Record<string, Contact["type"]> = {
-      registrant: "registrant",
-      administrative: "admin",
-      technical: "tech",
-      billing: "billing",
-      abuse: "abuse",
-      reseller: "reseller",
-    } as const;
-    const roleKey = (map[type.toLowerCase()] ?? "unknown") as Contact["type"];
-    const contact: Contact = {
-      type: roleKey,
-      name: v.fn,
-      organization: v.org,
-      organizationUnits: v.orgUnits,
-      kind: v.kind,
-      title: v.title,
-      role: v.role,
-      email: single(v.email),
-      phone: single(v.tel),
-      fax: single(v.fax),
-      poBox: v.poBox,
-      street: v.street,
-      city: v.locality,
-      state: v.region,
-      postalCode: v.postcode,
-      country: v.country,
-      countryCode: v.countryCode,
-    };
-    const matching = (redactions ?? []).filter((r) => redactionTargetsRole(r, type.toLowerCase()));
-    // Fields the redaction names, limited to ones actually absent (a present value wasn't hidden).
-    const fields = matching
-      .flatMap((r) => redactionFields(r.name, r.prePath))
-      .filter((f) => !contact[f] || (Array.isArray(contact[f]) && !contact[f]?.length));
-    out.push(finalizeContact(contact, fields.length ? fields : matching.length > 0));
+    const roles = rolesOf(ent)
+      .map((r) => r.toLowerCase())
+      .filter((r) => CONTACT_ROLES[r]);
+    for (const role of new Set(roles)) {
+      const contact: Contact = {
+        type: CONTACT_ROLES[role] ?? "unknown",
+        name: v.fn,
+        organization: v.org,
+        organizationUnits: v.orgUnits,
+        kind: v.kind,
+        title: v.title,
+        role: v.role,
+        email: single(v.email),
+        phone: single(v.tel),
+        fax: single(v.fax),
+        poBox: v.poBox,
+        street: v.street,
+        city: v.locality,
+        state: v.region,
+        postalCode: v.postcode,
+        country: v.country,
+        countryCode: v.countryCode,
+      };
+      const matching = (redactions ?? []).filter((r) => redactionTargetsRole(r, role));
+      // Fields the redaction names, limited to ones actually absent (a present value wasn't hidden).
+      const fields = matching
+        .flatMap((r) => redactionFields(r.name, r.prePath))
+        .filter((f) => !contact[f] || (Array.isArray(contact[f]) && !contact[f]?.length));
+      out.push(finalizeContact(contact, fields.length ? fields : matching.length > 0));
+    }
   }
-  return out.length ? out : undefined;
+  return mergeContacts(out);
 }
 
 /** Collapse a list to undefined, a single string, or the array when there are several. */

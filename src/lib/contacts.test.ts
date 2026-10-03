@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { finalizeContact, redactionFields } from "./contacts";
+import { finalizeContact, mergeContacts, redactionFields } from "./contacts";
 import { isPlaceholderValue, isPrivacyName } from "./privacy";
 import * as api from "../index";
 
@@ -167,4 +167,33 @@ test("a dropped country keeps a separate countryCode, and survives re-finalizing
   expect(again.redactedFields).toEqual(["country"]);
   expect(again.redacted).toBe(true);
   expect(again).toEqual(c);
+});
+
+test("mergeContacts combines a registry's redacted copy with the registrar's full one", () => {
+  const registry = finalizeContact({
+    type: "registrant",
+    name: "REDACTED FOR PRIVACY",
+    organization: "Acme Inc",
+  });
+  const registrar = finalizeContact({
+    type: "registrant",
+    name: "Jane Doe",
+    organization: "Acme Inc",
+    email: "jane@acme.example",
+  });
+  expect(mergeContacts([registry, registrar])).toEqual([
+    { type: "registrant", name: "Jane Doe", organization: "Acme Inc", email: "jane@acme.example" },
+  ]);
+  // An empty redacted admin and a real admin are one contact
+  const emptyAdmin = finalizeContact({ type: "admin" }, true);
+  const admin = finalizeContact({ type: "admin", name: "Ops", email: "ops@acme.example" });
+  expect(mergeContacts([emptyAdmin, admin])).toHaveLength(1);
+});
+
+test("mergeContacts keeps distinct parties of the same role apart", () => {
+  const a = finalizeContact({ type: "tech", name: "Alice" });
+  const b = finalizeContact({ type: "tech", name: "Bob" });
+  const r = finalizeContact({ type: "registrant", name: "Alice" });
+  expect(mergeContacts([a, b, r])).toHaveLength(3);
+  expect(mergeContacts([])).toBeUndefined();
 });

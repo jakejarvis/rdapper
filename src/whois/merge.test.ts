@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, test, vi } from "vitest";
 
 vi.mock("./client.js", () => ({
   whoisQuery: vi.fn(async (server: string) => {
@@ -37,4 +37,23 @@ describe("WHOIS coalescing", () => {
     expect(merged.creationDate).toBeDefined();
     expect(merged.whoisServer?.toLowerCase()).toContain("whois.nic.io");
   });
+});
+
+test("mergeWhoisRecords keeps the registrar's fuller registrant over the registry's redacted one", () => {
+  const registry = normalizeWhois(
+    "example.org",
+    "org",
+    "Domain Name: example.org\nRegistrant Name: REDACTED FOR PRIVACY\nRegistrant Organization: Acme Inc\n",
+    "whois.pir.org",
+  );
+  const registrar = normalizeWhois(
+    "example.org",
+    "org",
+    "Domain Name: example.org\nRegistrant Name: Jane Doe\nRegistrant Organization: Acme Inc\nRegistrant Email: jane@acme.example\n",
+    "whois.registrar.test",
+  );
+  const merged = mergeWhoisRecords(registry, [registrar]);
+  expect(merged.contacts).toEqual([
+    { type: "registrant", name: "Jane Doe", organization: "Acme Inc", email: "jane@acme.example" },
+  ]);
 });

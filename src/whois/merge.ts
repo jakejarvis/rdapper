@@ -1,5 +1,6 @@
+import { mergeContacts } from "../lib/contacts";
 import { mergeNameservers } from "../lib/nameservers";
-import type { Contact, DomainRecord } from "../types";
+import type { DomainRecord } from "../types";
 
 function dedupeStatuses(a?: DomainRecord["statuses"], b?: DomainRecord["statuses"]) {
   const list = [...(a || []), ...(b || [])];
@@ -10,19 +11,6 @@ function dedupeStatuses(a?: DomainRecord["statuses"], b?: DomainRecord["statuses
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push(s);
-  }
-  return out.length ? out : undefined;
-}
-
-function dedupeContacts(a?: Contact[], b?: Contact[]) {
-  const list = [...(a || []), ...(b || [])];
-  const seen = new Set<string>();
-  const out: Contact[] = [];
-  for (const c of list) {
-    const key = `${c.type}|${(c.organization || c.name || c.email || "").toString().toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(c);
   }
   return out.length ? out : undefined;
 }
@@ -44,7 +32,7 @@ export function mergeWhoisRecords(base: DomainRecord, others: DomainRecord[]): D
     merged.transferLock = Boolean(merged.transferLock || cur.transferLock);
     merged.dnssec = merged.dnssec ?? cur.dnssec;
     merged.nameservers = mergeNameservers(merged.nameservers, cur.nameservers);
-    merged.contacts = dedupeContacts(merged.contacts, cur.contacts);
+    merged.contacts = mergeContacts([...(merged.contacts ?? []), ...(cur.contacts ?? [])]);
     merged.privacyEnabled = merged.privacyEnabled ?? cur.privacyEnabled;
     // Keep whoisServer pointing to the latest contributing authoritative server
     merged.whoisServer = cur.whoisServer ?? merged.whoisServer;
