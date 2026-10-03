@@ -13,13 +13,30 @@ test("isPrivacyName flags redaction notices and privacy services", () => {
     "Identity Protection Service",
     "Withheld for Privacy ehf",
     "Datos Privados",
+    "Contacto Privado",
+    "Proxy Protection LLC",
+    "Whois Privacy Services Pty Ltd",
   ]) {
     expect(isPrivacyName(v), v).toBe(true);
   }
 });
 
 test("isPrivacyName does not flag ordinary names with ambiguous words", () => {
-  for (const v of ["Private Equity Partners LLC", "Protection One", "Jane Private", "Acme Inc"]) {
+  for (const v of [
+    "Private Equity Partners LLC",
+    "Protection One",
+    "Jane Private",
+    "Acme Inc",
+    "Tata Consultancy Services Private Limited",
+    "Endurance Domains Technology Pvt. Ltd.",
+    "Example Holdings Pte. Ltd.",
+    "Allied Fire Protection Services Inc",
+    "Private Client Services Ltd",
+    "Contact Lens Protection Ltd",
+    "Banco Privado Atlantico",
+    "Hospital Privado de Córdoba S.A.",
+    "Center for Privacy and Technology",
+  ]) {
     expect(isPrivacyName(v), v).toBe(false);
   }
 });

@@ -19,8 +19,10 @@ const REDACTION_PHRASES = [
  * redaction notices these can be real registrant text worth showing, so they aren't placeholders.
  */
 const PRIVACY_SERVICE_PHRASES = [
-  "privado", // Spanish
-  "datos privados", // Spanish
+  // Spanish; not "privado" alone, which names real banks, hospitals, and schools
+  "datos privados",
+  "contacto privado",
+  "registro privado",
   "registration private",
   "private registration",
   "whois privacy",
@@ -31,7 +33,6 @@ const PRIVACY_SERVICE_PHRASES = [
   "contact privacy",
   "domains by proxy",
   "proxy service",
-  "for privacy",
 ];
 
 /**
@@ -41,7 +42,9 @@ export const PRIVACY_STRONG_KEYWORDS = [...REDACTION_PHRASES, ...PRIVACY_SERVICE
 
 /**
  * Words too ambiguous to trust alone ("Private Equity LLC", "Protection One"). They only count
- * when at least two distinct terms from WEAK + CONTEXT appear as whole words.
+ * when at least two distinct terms from WEAK + CONTEXT appear as whole words. Context words are
+ * domain-specific: generic ones like "services" or "contact" turn up in ordinary company names
+ * ("Allied Fire Protection Services", "Contact Lens Protection Ltd").
  */
 const PRIVACY_WEAK_WORDS = ["privacy", "private", "protect", "protected", "protection"];
 const PRIVACY_CONTEXT_WORDS = [
@@ -51,13 +54,14 @@ const PRIVACY_CONTEXT_WORDS = [
   "domains",
   "registration",
   "guard",
-  "service",
-  "services",
   "masked",
   "anonymous",
   "identity",
-  "contact",
 ];
+
+// Legal forms containing a weak word: "Tata Consultancy Services Private Limited" (India),
+// "Example Pte. Ltd." (Singapore)
+const LEGAL_FORM_RE = /\(?\b(?:private|pvt|pte)\b\)?\.?\s*(?:limited|ltd)\b\.?/g;
 const WEAK_WORD_RE = new RegExp(`\\b(?:${PRIVACY_WEAK_WORDS.join("|")})\\b`, "g");
 const CONTEXT_WORD_RE = new RegExp(
   `\\b(?:${[...PRIVACY_WEAK_WORDS, ...PRIVACY_CONTEXT_WORDS].join("|")})\\b`,
@@ -68,9 +72,10 @@ const CONTEXT_WORD_RE = new RegExp(
 export function isPrivacyName(value: string): boolean {
   const v = value.toLowerCase().trim();
   if (PRIVACY_STRONG_KEYWORDS.some((k) => v.includes(k))) return true;
-  if (!WEAK_WORD_RE.test(v)) return false;
+  const name = v.replace(LEGAL_FORM_RE, " ");
   WEAK_WORD_RE.lastIndex = 0;
-  return new Set(v.match(CONTEXT_WORD_RE)).size >= 2;
+  if (!WEAK_WORD_RE.test(name)) return false;
+  return new Set(name.match(CONTEXT_WORD_RE)).size >= 2;
 }
 
 const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
