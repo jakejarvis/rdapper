@@ -74,6 +74,17 @@ export interface ParsedVCard {
 
 const lines = (s: string | undefined) => (s ? s.split(/\r?\n/).filter(Boolean) : []);
 
+/**
+ * Lines of a structured value's component, which holds an array when it has several values
+ * (RFC 7095 3.3.1.3): ["", "", ["3540 E Longwing Ln", "Suite 300"], "Meridian", ...].
+ */
+function componentLines(value: unknown, i: number): string[] {
+  const component = Array.isArray(value) ? value[i] : undefined;
+  return (Array.isArray(component) ? component : [component])
+    .filter((x): x is string => typeof x === "string")
+    .flatMap((x) => lines(x.trim()));
+}
+
 /** Extract the fields rdapper cares about from an RDAP "vcardArray". */
 export function parseVcard(vcardArray: unknown): ParsedVCard {
   const out: ParsedVCard = {};
@@ -127,12 +138,15 @@ export function parseVcard(vcardArray: unknown): ParsedVCard {
         }
         // [postOfficeBox, extendedAddress, street, locality, region, postalCode, country]
         out.poBox = part(p.value, 0);
-        const street = [...lines(part(p.value, 1)), ...lines(part(p.value, 2))];
-        out.street = street.length ? street : undefined;
+        const street = [...componentLines(p.value, 1), ...componentLines(p.value, 2)];
         out.locality = part(p.value, 3);
         out.region = part(p.value, 4);
         out.postcode = part(p.value, 5);
         out.country = part(p.value, 6);
+        // With every component empty, the address may be given whole in the "label" parameter
+        const structured = street.length || out.poBox || out.locality || out.country;
+        if (!structured) street.push(...lines(asString(p.params.label)?.trim()));
+        out.street = street.length ? street : undefined;
         // RFC 8605: ISO 3166-1 alpha-2 code lives in the "cc" parameter
         const cc = asString(p.params.cc);
         if (cc) out.countryCode = cc.toUpperCase();

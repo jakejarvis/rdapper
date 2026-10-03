@@ -60,3 +60,24 @@ test("parseVcard keeps PO box and extended address, and strips tel: URIs", () =>
   expect(v.countryCode).toBe("NL");
   expect(v.tel).toEqual(["+31.201234567"]);
 });
+
+test("parseVcard reads multi-value street components and a label-only address", () => {
+  const multi = parseVcard([
+    "vcard",
+    [
+      [
+        "adr",
+        {},
+        "text",
+        ["", "", ["3540 E Longwing Ln", "Suite 300"], "Meridian", "ID", "83646", "US"],
+      ],
+    ],
+  ]);
+  expect(multi.street).toEqual(["3540 E Longwing Ln", "Suite 300"]);
+  expect(multi.locality).toBe("Meridian");
+  const label = parseVcard([
+    "vcard",
+    [["adr", { label: "123 Main St\nSpringfield\nUS" }, "text", ["", "", "", "", "", "", ""]]],
+  ]);
+  expect(label.street).toEqual(["123 Main St", "Springfield", "US"]);
+});
