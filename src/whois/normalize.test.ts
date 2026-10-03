@@ -442,3 +442,18 @@ dnssec.............: signed delegation
     dnssec: { enabled: true },
   });
 });
+
+test("WHOIS nameservers repeated in a glue block appear once (.ua)", () => {
+  const text = `
+domain:           hostmaster.ua
+nserver:          bg.ns.ua
+nserver:          ho1.ns.hostmaster.ua
+status:           ok
+
+% Glue Records:
+% =============
+nserver:          ho1.ns.hostmaster.ua
+`;
+  const rec = normalizeWhois("hostmaster.ua", "ua", text, "whois.ua");
+  expect(rec.nameservers?.map((n) => n.host)).toEqual(["bg.ns.ua", "ho1.ns.hostmaster.ua"]);
+});

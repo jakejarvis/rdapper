@@ -1,8 +1,9 @@
 import { resolveCountry } from "../lib/countries";
 import { finalizeContact, isPrivacyContact, redactionFields } from "../lib/contacts";
 import { toISO } from "../lib/dates";
+import { mergeNameservers } from "../lib/nameservers";
 import { normalizeEppStatus } from "../lib/status";
-import { asDateLike, asString, asStringArray, uniq, uniqBy } from "../lib/text";
+import { asDateLike, asString, asStringArray, uniqBy } from "../lib/text";
 import { type ParsedVCard, parseVcard } from "./vcard";
 import type { Contact, DomainRecord, Nameserver, Redaction, RegistrarInfo } from "../types";
 
@@ -148,9 +149,7 @@ export function normalizeRdap(
     deletionDate,
     transferLock,
     dnssec,
-    nameservers: nameservers
-      ? uniq(nameservers.map((n) => ({ ...n, host: n.host.toLowerCase() })))
-      : undefined,
+    nameservers: mergeNameservers(nameservers),
     contacts,
     privacyEnabled: privacyEnabled ? true : undefined,
     redactions,

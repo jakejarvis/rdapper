@@ -1,5 +1,5 @@
-import { uniq } from "../lib/text";
-import type { Contact, DomainRecord, Nameserver } from "../types";
+import { mergeNameservers } from "../lib/nameservers";
+import type { Contact, DomainRecord } from "../types";
 
 function dedupeStatuses(a?: DomainRecord["statuses"], b?: DomainRecord["statuses"]) {
   const list = [...(a || []), ...(b || [])];
@@ -11,23 +11,6 @@ function dedupeStatuses(a?: DomainRecord["statuses"], b?: DomainRecord["statuses
     seen.add(key);
     out.push(s);
   }
-  return out.length ? out : undefined;
-}
-
-function dedupeNameservers(a?: Nameserver[], b?: Nameserver[]) {
-  const map = new Map<string, Nameserver>();
-  for (const ns of [...(a || []), ...(b || [])]) {
-    const host = ns.host.toLowerCase();
-    const prev = map.get(host);
-    if (!prev) {
-      map.set(host, { ...ns, host });
-      continue;
-    }
-    const ipv4 = uniq([...(prev.ipv4 || []), ...(ns.ipv4 || [])]);
-    const ipv6 = uniq([...(prev.ipv6 || []), ...(ns.ipv6 || [])]);
-    map.set(host, { host, ipv4, ipv6 });
-  }
-  const out = Array.from(map.values());
   return out.length ? out : undefined;
 }
 
@@ -60,7 +43,7 @@ export function mergeWhoisRecords(base: DomainRecord, others: DomainRecord[]): D
     merged.deletionDate = merged.deletionDate ?? cur.deletionDate;
     merged.transferLock = Boolean(merged.transferLock || cur.transferLock);
     merged.dnssec = merged.dnssec ?? cur.dnssec;
-    merged.nameservers = dedupeNameservers(merged.nameservers, cur.nameservers);
+    merged.nameservers = mergeNameservers(merged.nameservers, cur.nameservers);
     merged.contacts = dedupeContacts(merged.contacts, cur.contacts);
     merged.privacyEnabled = merged.privacyEnabled ?? cur.privacyEnabled;
     // Keep whoisServer pointing to the latest contributing authoritative server

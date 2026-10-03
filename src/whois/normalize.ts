@@ -1,7 +1,8 @@
 import { toISOFromTokens } from "../lib/dates";
 import { finalizeContact, isPrivacyContact } from "../lib/contacts";
+import { mergeNameservers } from "../lib/nameservers";
 import { isEppStatus, normalizeEppStatus } from "../lib/status";
-import { parseKeyValueBlocks, parseKeyValueLines, uniq } from "../lib/text";
+import { parseKeyValueBlocks, parseKeyValueLines } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
 // Common WHOIS availability phrases seen across registries/registrars
@@ -205,30 +206,28 @@ export function normalizeWhois(
     ...(map["ns 3"] || []),
     ...(map["ns 4"] || []),
   ];
-  const nameservers: Nameserver[] | undefined = nsLines.length
-    ? (uniq(
-        nsLines
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => {
-            // Common formats: "ns1.example.com" or "ns1.example.com 192.0.2.1" or "ns1.example.com 2001:db8::1"
-            const parts = line.split(/\s+/);
-            const host = parts.shift()?.toLowerCase() || "";
-            const ipv4: string[] = [];
-            const ipv6: string[] = [];
-            for (const p of parts) {
-              if (/^\d+\.\d+\.\d+\.\d+$/.test(p)) ipv4.push(p);
-              else if (/^[0-9a-f:]+$/i.test(p)) ipv6.push(p);
-            }
-            if (!host) return undefined;
-            const ns: Nameserver = { host };
-            if (ipv4.length) ns.ipv4 = ipv4;
-            if (ipv6.length) ns.ipv6 = ipv6;
-            return ns;
-          })
-          .filter((x): x is Nameserver => !!x),
-      ) as Nameserver[])
-    : undefined;
+  const nameservers = mergeNameservers(
+    nsLines
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        // Common formats: "ns1.example.com" or "ns1.example.com 192.0.2.1" or "ns1.example.com 2001:db8::1"
+        const parts = line.split(/\s+/);
+        const host = parts.shift()?.toLowerCase() || "";
+        const ipv4: string[] = [];
+        const ipv6: string[] = [];
+        for (const p of parts) {
+          if (/^\d+\.\d+\.\d+\.\d+$/.test(p)) ipv4.push(p);
+          else if (/^[0-9a-f:]+$/i.test(p)) ipv6.push(p);
+        }
+        if (!host) return undefined;
+        const ns: Nameserver = { host };
+        if (ipv4.length) ns.ipv4 = ipv4;
+        if (ipv6.length) ns.ipv6 = ipv6;
+        return ns;
+      })
+      .filter((x): x is Nameserver => !!x),
+  );
 
   // Contacts: best-effort parse common keys
   const contacts = collectContacts(map);
