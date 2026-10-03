@@ -2,7 +2,7 @@ import { toISOFromTokens } from "../lib/dates";
 import { finalizeContact, isPrivacyContact } from "../lib/contacts";
 import { mergeNameservers } from "../lib/nameservers";
 import { isEppStatus, normalizeEppStatus } from "../lib/status";
-import { parseKeyValueBlocks, parseKeyValueLines } from "../lib/text";
+import { parseKeyValueBlocks, parseKeyValueLines, uniqBy } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
 // Phrases registries use to say a name is not registered. They also turn up in the remarks and
@@ -177,26 +177,19 @@ export function normalizeWhois(
     };
   })();
 
-  // Statuses: multiple entries are expected; keep raw
-  const statusLines =
-    map["domain status"] ||
-    map.status ||
-    map.flags ||
-    map.state || // .ru
-    map["registration status"] ||
-    map.eppstatus || // .fr
-    [];
-  // Report EPP codes, as RDAP does; a status may be spelled out ("client transfer prohibited")
+  // Statuses come from the first block that lists any, as contact blocks repeat "status:" (.ua,
+  // .fr). .be lists its EPP statuses under a separate "Flags:" header.
+  const statusLines = [
+    ...(statusLinesOf(blocks) ?? statusLinesOf([map], false) ?? []),
+    ...blocks.flatMap((b) => b.flags ?? []).filter((f) => isEppStatus(f)),
+  ];
   const statuses = statusLines.length
-    ? statusLines
-        .map((line) => {
-          const phrase = line.replace(/\s*(?:\(?https?:\/\/\S*\)?|\(.*\)).*$/, "");
-          const status = normalizeEppStatus(
-            isEppStatus(phrase) ? phrase : (line.split(/\s+/)[0] ?? ""),
-          );
-          return status ? { status, raw: line } : null;
-        })
-        .filter((s): s is { status: string; raw: string } => s !== null)
+    ? uniqBy(
+        statusLines.flatMap((line) =>
+          parseStatusLine(line).map((status) => ({ status, raw: line })),
+        ),
+        (s) => s.status.toLowerCase(),
+      )
     : undefined;
 
   // Some registries (.ua) publish expiry only as a status, e.g. "OK-UNTIL 20261004161638"
@@ -257,9 +250,9 @@ export function normalizeWhois(
     ? { enabled: dnssecValues.some((v) => /^(?:signed|yes|true|active)/i.test(v.trim())) }
     : undefined;
 
-  // Simple lock derivation from statuses
+  // Simple lock derivation from statuses (the EPP code, or the registry's wording in raw)
   const transferLock = !!statuses?.some((s) =>
-    /transfer[-\s]*prohibited/i.test(s.raw || s.status || ""),
+    /transfer[-\s]*prohibited/i.test(`${s.status} ${s.raw ?? ""}`),
   );
 
   const record: DomainRecord = {
@@ -294,6 +287,52 @@ export function normalizeWhois(
   };
 
   return record;
+}
+
+// Status keys by preference: .fr lists EPP codes as "eppstatus" beside a plain "status: ACTIVE"
+const STATUS_KEYS = ["eppstatus", "domain status", "status", "registration status"];
+
+/**
+ * Status lines of the first block that has any. "state" is .ru's status key but a contact's
+ * region elsewhere ("State: Nuevo Leon" on .mx), so it only counts beside the domain line.
+ */
+function statusLinesOf(
+  blocks: Array<Record<string, string[]>>,
+  allowState = true,
+): string[] | undefined {
+  for (const block of blocks) {
+    const key = STATUS_KEYS.find((k) => block[k]?.length);
+    if (key) return block[key];
+    if (allowState && block.state?.length && (block.domain || block["domain name"])) {
+      return block.state;
+    }
+  }
+  return undefined;
+}
+
+// FRED registries (.cz, .mk, ...) describe server statuses in words
+const FRED_STATUSES: Record<string, string> = {
+  "sponsoring registrar change forbidden": "serverTransferProhibited",
+  "deletion forbidden": "serverDeleteProhibited",
+  "update forbidden": "serverUpdateProhibited",
+};
+
+/**
+ * Statuses in one WHOIS status line, as EPP codes where they have one, otherwise as the
+ * registry's own phrase: "clientTransferProhibited https://icann.org/epp#...", "ok (paid and in
+ * zone)", "REGISTERED, DELEGATED, VERIFIED", "Transfer Locked", "OK-UNTIL 20261004161638".
+ */
+function parseStatusLine(line: string): string[] {
+  const phrase = line.replace(/\s*(?:\(?https?:\/\/\S*\)?|\(.*\)).*$/, "");
+  return phrase
+    .split(",")
+    .map((part) => {
+      const p = part.trim().replace(/\.$/, "");
+      if (isEppStatus(p)) return normalizeEppStatus(p);
+      // A trailing date explains the status rather than naming it (.ua "OK-UNTIL <date>")
+      return FRED_STATUSES[p.toLowerCase()] ?? p.replace(/(?:\s+\d\S*)+$/, "");
+    })
+    .filter(Boolean);
 }
 
 /** First value that parses as a date, taking blocks in order and keys by priority within each. */

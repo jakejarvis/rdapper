@@ -485,3 +485,43 @@ test("WHOIS availability phrases still mark a reply with no record data availabl
     "domain: example.com.br\ncreated: 20100101\nnserver: ns1.example.com.br\nstatus: release process: waiting\n";
   expect(normalizeWhois("example.com.br", "com.br", releasing, undefined).isRegistered).toBe(false);
 });
+
+test("WHOIS statuses come from the domain's block, whole and split on commas", () => {
+  const status = (text: string) =>
+    normalizeWhois("example.test", "test", text, undefined).statuses?.map((s) => s.status);
+  // .ua: contact blocks repeat "status:"
+  expect(status("domain: x.ua\nstatus: ok\n\ncontact: H1\nstatus: ok\nstatus: linked\n")).toEqual([
+    "ok",
+  ]);
+  // .fr: EPP codes under "eppstatus", contacts repeat it
+  expect(
+    status(
+      "domain: x.fr\nstatus: ACTIVE\neppstatus: serverTransferProhibited\n\nnic-hdl: A1\neppstatus: active\n",
+    ),
+  ).toEqual(["serverTransferProhibited"]);
+  // .mx: "State" is a contact's region
+  expect(status("Domain Name: x.mx\n\nRegistrant:\n   State: Nuevo Leon\n")).toBeUndefined();
+  // .ru: "state" beside the domain line
+  expect(status("domain: X.RU\nstate: REGISTERED, DELEGATED, VERIFIED\n")).toEqual([
+    "REGISTERED",
+    "DELEGATED",
+    "VERIFIED",
+  ]);
+  // .sk comma list, .il phrase, .cz FRED wording
+  expect(
+    status("Domain: x.sk\nDomain Status: serverRenewProhibited, serverUpdateProhibited\n"),
+  ).toEqual(["serverRenewProhibited", "serverUpdateProhibited"]);
+  expect(status("domain: x.il\nstatus: Transfer Locked\n")).toEqual(["Transfer Locked"]);
+  const cz = normalizeWhois(
+    "x.cz",
+    "cz",
+    "domain: x.cz\nstatus: Sponsoring registrar change forbidden\n",
+    undefined,
+  );
+  expect(cz.statuses?.map((s) => s.status)).toEqual(["serverTransferProhibited"]);
+  expect(cz.transferLock).toBe(true);
+  // .be: EPP statuses under a separate "Flags:" header
+  expect(
+    status("Domain: x.be\nStatus: NOT AVAILABLE\n\nFlags:\n\tclientTransferProhibited\n"),
+  ).toEqual(["NOT AVAILABLE", "clientTransferProhibited"]);
+});
