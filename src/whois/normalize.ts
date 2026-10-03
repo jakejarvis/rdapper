@@ -198,43 +198,14 @@ export function normalizeWhois(
 
   // Nameservers: also appear as "nserver" on some ccTLDs (.de, .ru) and as "name server"
   const nsLines: string[] = [
-    ...(map["name server"] || []),
-    ...(map.nameserver || []),
-    ...(map["name servers"] || []),
-    ...(map.nserver || []),
-    ...(map["name server information"] || []),
-    ...(map.dns || []),
-    ...(map.hostname || []),
-    ...(map["domain nameservers"] || []),
-    ...(map["domain servers in listed order"] || []), // .ly
-    ...(map["domain servers"] || []), // .tr
-    ...(map["name servers dns"] || []), // .mx
-    ...(map["ns 1"] || []),
-    ...(map["ns 2"] || []),
-    ...(map["ns 3"] || []),
-    ...(map["ns 4"] || []),
+    ...NAMESERVER_KEYS.flatMap((k) => map[k] ?? []),
+    // "NS 1" ... "NS 8" (.tm)
+    ...Object.keys(map)
+      .filter((k) => /^ns \d+$/.test(k))
+      .flatMap((k) => map[k] ?? []),
   ];
   const nameservers = mergeNameservers(
-    nsLines
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        // Common formats: "ns1.example.com" or "ns1.example.com 192.0.2.1" or "ns1.example.com 2001:db8::1"
-        const parts = line.split(/\s+/);
-        const host = parts.shift()?.toLowerCase() || "";
-        const ipv4: string[] = [];
-        const ipv6: string[] = [];
-        for (const p of parts) {
-          if (/^\d+\.\d+\.\d+\.\d+$/.test(p)) ipv4.push(p);
-          else if (/^[0-9a-f:]+$/i.test(p)) ipv6.push(p);
-        }
-        if (!host) return undefined;
-        const ns: Nameserver = { host };
-        if (ipv4.length) ns.ipv4 = ipv4;
-        if (ipv6.length) ns.ipv6 = ipv6;
-        return ns;
-      })
-      .filter((x): x is Nameserver => !!x),
+    nsLines.map((line) => parseNameserverLine(line, domain)).filter((x): x is Nameserver => !!x),
   );
 
   // Contacts: best-effort parse common keys
@@ -288,6 +259,43 @@ export function normalizeWhois(
   };
 
   return record;
+}
+
+const NAMESERVER_KEYS = [
+  "name server",
+  "nameserver",
+  "name servers",
+  "nameservers", // .pl, .be, .it
+  "nserver",
+  "name server information",
+  "name servers information", // .hk
+  "dns",
+  "hostname",
+  "host name", // .kr
+  "domain nameservers",
+  "domain servers in listed order", // .ly
+  "domain servers", // .tr
+  "name servers dns", // .mx
+];
+
+/**
+ * One nameserver line: the host, then glue in whatever shape the registry uses ("192.0.2.1
+ * 2001:db8::1", "(192.0.2.1)", "[192.0.2.1,2001:db8::1]" (.lu), "- 192.0.2.1" (.rs),
+ * "| IPv4: 192.0.2.1 and IPv6: 2001:db8::1" (.pt)). Undefined when the line doesn't start
+ * with a hostname ("-" on .lv) or names the queried domain itself (.dk's "DNS:" line).
+ */
+function parseNameserverLine(line: string, domain: string): Nameserver | undefined {
+  const [first = "", ...rest] = line.split(/[\s,;()[\]|]+/).filter(Boolean);
+  const host = first.toLowerCase().replace(/\.$/, "");
+  if (!/^[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+$/u.test(host) || host === domain.toLowerCase()) {
+    return undefined;
+  }
+  const ipv4 = rest.filter((t) => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(t));
+  const ipv6 = rest.filter((t) => /^[0-9a-f]*(?::[0-9a-f]*){2,7}$/i.test(t));
+  const ns: Nameserver = { host };
+  if (ipv4.length) ns.ipv4 = ipv4;
+  if (ipv6.length) ns.ipv6 = ipv6;
+  return ns;
 }
 
 // Status keys by preference: .fr lists EPP codes as "eppstatus" beside a plain "status: ACTIVE"

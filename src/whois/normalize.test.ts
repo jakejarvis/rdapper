@@ -525,3 +525,60 @@ test("WHOIS statuses come from the domain's block, whole and split on commas", (
     status("Domain: x.be\nStatus: NOT AVAILABLE\n\nFlags:\n\tclientTransferProhibited\n"),
   ).toEqual(["NOT AVAILABLE", "clientTransferProhibited"]);
 });
+
+test.each([
+  [
+    "nserver: d.ns.nic.cz (193.29.206.1, 2001:678:1::1)",
+    { ipv4: ["193.29.206.1"], ipv6: ["2001:678:1::1"] },
+  ], // .cz
+  [
+    "nserver: k.dns.lu [194.0.1.13,2001:678:4::d]",
+    { ipv4: ["194.0.1.13"], ipv6: ["2001:678:4::d"] },
+  ], // .lu
+  [
+    "nserver: ns5.nic.ru. 31.177.67.100, 2a02:2090:e800::100",
+    { ipv4: ["31.177.67.100"], ipv6: ["2a02:2090:e800::100"] },
+  ], // .ru
+  ["DNS: odisej.telekom.rs - 195.178.32.2", { ipv4: ["195.178.32.2"] }], // .rs
+  [
+    "Name Server: b.dns.pt | IPv4: 194.0.25.23 and IPv6: 2001:678:20::23",
+    { ipv4: ["194.0.25.23"], ipv6: ["2001:678:20::23"] },
+  ], // .pt
+])("WHOIS nameserver glue in %j", (line, glue) => {
+  const rec = normalizeWhois(
+    "example.test",
+    "test",
+    `Domain Name: example.test\n${line}\n`,
+    undefined,
+  );
+  expect(rec.nameservers).toHaveLength(1);
+  expect(rec.nameservers?.[0]).toMatchObject(glue);
+});
+
+test("WHOIS nameserver keys and continuation lines across ccTLD layouts", () => {
+  const hosts = (domain: string, text: string) =>
+    normalizeWhois(domain, "test", text, undefined).nameservers?.map((n) => n.host);
+  // .pl: continuation lines carrying IPv6 glue
+  expect(
+    hosts(
+      "dns.pl",
+      "nameservers:   bilbo.nask.org.pl. [195.187.245.51]\n               eomer.nask.net.pl. [193.59.201.24][2001:a10:1:ffff::2:c918]\ncreated:       1998.01.26 12:00:00\n",
+    ),
+  ).toEqual(["bilbo.nask.org.pl", "eomer.nask.net.pl"]);
+  // .kr "Host Name", .tm "NS 7"
+  expect(
+    hosts("kisa.or.kr", "Primary Name Server\n   Host Name                : center.kisa.or.kr\n"),
+  ).toEqual(["center.kisa.or.kr"]);
+  expect(hosts("nic.tm", "NS 1 : dns1.nic.tm\nNS 7 : dns6.nic.tm\n")).toEqual([
+    "dns1.nic.tm",
+    "dns6.nic.tm",
+  ]);
+  // .dk names the domain itself on a "DNS:" line; .lv writes "-" for none
+  expect(
+    hosts(
+      "punktum.dk",
+      "Domain: punktum.dk\nDNS: punktum.dk\n\nHostname: auth01.ns.dk-hostmaster.dk\n",
+    ),
+  ).toEqual(["auth01.ns.dk-hostmaster.dk"]);
+  expect(hosts("nic.lv", "Domain: nic.lv\nNserver: -\n")).toBeUndefined();
+});

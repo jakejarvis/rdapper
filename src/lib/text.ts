@@ -61,6 +61,12 @@ export function parseKeyValueLines(text: string): Record<string, string[]> {
         continue;
       }
     }
+    // An indented line whose colons aren't key separators continues the last key, e.g. .pl's
+    // "    eomer.nask.net.pl. [193.59.201.24][2001:a10:1:ffff::2:c918]"
+    if (lastKey && indent > 0 && !/:(\s|$)/.test(line)) {
+      add(lastKey, line.trim());
+      continue;
+    }
     // Colon form: Key: value
     const idx = line.indexOf(":");
     if (idx !== -1) {
