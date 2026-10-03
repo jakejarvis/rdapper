@@ -13,8 +13,17 @@ describe("classifyError", () => {
     },
   );
 
-  it("maps ETIMEDOUT to timeout", () => {
-    expect(classifyError(errno("ETIMEDOUT")).code).toBe("timeout");
+  it.each([
+    "ETIMEDOUT",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "UND_ERR_BODY_TIMEOUT",
+  ])("maps %s to timeout", (code) => {
+    expect(classifyError(errno(code)).code).toBe("timeout");
+  });
+
+  it("maps undici's UND_ERR_SOCKET to connect_failed", () => {
+    expect(classifyError(errno("UND_ERR_SOCKET")).code).toBe("connect_failed");
   });
 
   it("maps AbortError to aborted", () => {

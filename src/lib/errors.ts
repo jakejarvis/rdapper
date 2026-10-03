@@ -53,6 +53,15 @@ const CONNECT_ERRNOS = new Set([
   "EPIPE",
   "EPERM",
   "EACCES",
+  "UND_ERR_SOCKET", // undici: the socket closed or failed mid-request
+]);
+
+// undici's own timeouts, beside the OS's ETIMEDOUT
+const TIMEOUT_ERRNOS = new Set([
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
 ]);
 
 function errnoOf(err: unknown): string | undefined {
@@ -99,9 +108,7 @@ export function classifyError(err: unknown): {
 
   // undici reports network failures as an opaque "fetch failed" with the details in `cause`
   const error = message === "fetch failed" && errno ? `${message} (${errno})` : message;
-  if (errno === "ETIMEDOUT" || errno === "UND_ERR_CONNECT_TIMEOUT") {
-    return { code: "timeout", error };
-  }
+  if (errno && TIMEOUT_ERRNOS.has(errno)) return { code: "timeout", error };
   if (errno && CONNECT_ERRNOS.has(errno)) return { code: "connect_failed", error };
   return { code: "unknown", error };
 }
