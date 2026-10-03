@@ -34,6 +34,22 @@ describe("detectWhoisRefusal", () => {
     expect(detectWhoisRefusal(record)).toBeUndefined();
   });
 
+  it("does not flag a short record whose footer says access is rate limited (CentralNic)", () => {
+    // Excerpt of whois.centralnic.com for google.uk.com; the full reply is under 2 KB
+    const record = [
+      "Domain Name: GOOGLE.UK.COM",
+      "Registry Domain ID: D4720874-CNIC",
+      "Creation Date: 2014-08-03T00:23:41.0Z",
+      "Registry Expiry Date: 2027-08-03T23:59:59.0Z",
+      "Registrar: Key-Systems GmbH",
+      "Name Server: NS1.OT.NETWORK",
+      "",
+      "Access to the Whois and RDAP services is rate limited. For more",
+      "information, visit https://centralnicregistry.com/policies/whois-guidance.",
+    ].join("\r\n");
+    expect(detectWhoisRefusal(record)).toBeUndefined();
+  });
+
   it("returns undefined for empty input", () => {
     expect(detectWhoisRefusal(undefined)).toBeUndefined();
   });

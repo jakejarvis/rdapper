@@ -1,5 +1,5 @@
 import type { DomainRecord } from "../types";
-import { isAvailableByWhois } from "./normalize";
+import { isAvailableByWhois, normalizeWhois } from "./normalize";
 
 // Real WHOIS records are much longer; refusal notices and error pages are short.
 const MAX_REFUSAL_TEXT_LENGTH = 2048;
@@ -23,13 +23,15 @@ const BLOCK_PATTERNS: RegExp[] = [
 /**
  * Classify a short WHOIS reply that is a refusal rather than a record: `rate_limited` for a
  * transient throttle, `blocked` for a permanent block. Availability notices win, and long
- * responses are never refusals, so a real record that mentions "rate limit" is not rejected.
+ * responses or ones carrying record data are never refusals, so a real record whose footer
+ * mentions "rate limit" (CentralNic's does) is not rejected.
  */
 export function detectWhoisRefusal(
   text: string | undefined,
 ): "rate_limited" | "blocked" | undefined {
   if (!text || text.length > MAX_REFUSAL_TEXT_LENGTH) return undefined;
   if (isAvailableByWhois(text)) return undefined;
+  if (!looksEmptyWhois(normalizeWhois("", "", text, undefined))) return undefined;
   if (BLOCK_PATTERNS.some((re) => re.test(text))) return "blocked";
   if (THROTTLE_PATTERNS.some((re) => re.test(text))) return "rate_limited";
   return undefined;
