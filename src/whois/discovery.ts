@@ -129,12 +129,14 @@ export async function ianaWhoisServerForTld(
 
 /**
  * Extract registrar referral WHOIS server from a WHOIS response, if present.
+ * Labels may be indented (Verisign indents every line), and a blank value never borrows the
+ * next line.
  */
 export function extractWhoisReferral(text: string): string | undefined {
   const patterns = [
-    /^Registrar WHOIS Server:\s*(.+)$/im,
-    /^Whois Server:\s*(.+)$/im,
-    /^ReferralServer:\s*whois:\/\/(.+)$/im,
+    /^[ \t]*Registrar WHOIS Server:[ \t]*(\S.*)$/im,
+    /^[ \t]*Whois Server:[ \t]*(\S.*)$/im,
+    /^[ \t]*ReferralServer:[ \t]*whois:\/\/(\S.*)$/im,
   ];
   for (const re of patterns) {
     const m = text.match(re);
