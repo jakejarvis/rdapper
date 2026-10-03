@@ -82,8 +82,11 @@ export async function discoverWhoisServer(
   ctx?: LookupContext,
 ): Promise<WhoisDiscovery> {
   const key = tld.toLowerCase();
+  // A multi-label public suffix (co.uk, com.br) is served by its TLD's registry: hints and
+  // exceptions may name either, and IANA's database has only TLDs
+  const tldKey = key.split(".").pop() ?? key;
   // 1) Explicit hint override
-  const hint = options?.whoisHints?.[key];
+  const hint = options?.whoisHints?.[key] ?? options?.whoisHints?.[tldKey];
   if (hint) return { server: normalizeServer(hint) };
 
   // 1b) Sub-registry suffixes (e.g. uk.com), which IANA knows nothing about
@@ -93,7 +96,7 @@ export async function discoverWhoisServer(
   // 2) IANA WHOIS authoritative discovery over TCP 43
   const out: WhoisDiscovery = {};
   try {
-    const text = await queryIana(key, options, ctx);
+    const text = await queryIana(tldKey, options, ctx);
     out.ianaText = text;
     const server = parseIanaWhoisServer(text);
     if (server) return { ...out, server: normalizeServer(server) };
@@ -103,7 +106,7 @@ export async function discoverWhoisServer(
   }
 
   // 3) Curated exceptions
-  const exception = WHOIS_TLD_EXCEPTIONS[key];
+  const exception = WHOIS_TLD_EXCEPTIONS[key] ?? WHOIS_TLD_EXCEPTIONS[tldKey];
   if (exception) return { ...out, server: normalizeServer(exception) };
 
   return out;

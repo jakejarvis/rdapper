@@ -30,3 +30,26 @@ describe("discoverWhoisServer for sub-registry suffixes", () => {
     expect(whoisQuery).toHaveBeenCalledWith("whois.iana.org", "com", undefined);
   });
 });
+
+describe("discoverWhoisServer for multi-label public suffixes", () => {
+  beforeEach(() => {
+    vi.mocked(whoisQuery).mockClear();
+  });
+
+  it("asks IANA about the TLD, not the suffix", async () => {
+    vi.mocked(whoisQuery).mockResolvedValueOnce({
+      serverQueried: "whois.iana.org",
+      text: "domain:       UK\nwhois:        whois.nic.uk\n",
+    });
+    expect((await discoverWhoisServer("co.uk")).server).toBe("whois.nic.uk");
+    expect(whoisQuery).toHaveBeenCalledWith("whois.iana.org", "uk", undefined);
+  });
+
+  it("applies a hint or exception keyed by the TLD", async () => {
+    expect(await discoverWhoisServer("co.uk", { whoisHints: { uk: "whois.custom" } })).toEqual({
+      server: "whois.custom",
+    });
+    vi.mocked(whoisQuery).mockRejectedValueOnce(new Error("IANA down"));
+    expect((await discoverWhoisServer("com.br")).server).toBe("whois.registro.br");
+  });
+});
