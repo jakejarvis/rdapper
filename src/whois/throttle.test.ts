@@ -8,6 +8,8 @@ describe("detectWhoisRefusal", () => {
     "You have exceeded the allowed number of queries.",
     "Too many requests",
     "<!DOCTYPE html><html><body>Service Unavailable</body></html>",
+    "Queried interval is too short.",
+    "% Error: 55000000002 Connection refused; access control limit reached.",
   ])("classifies %j as rate_limited", (text) => {
     expect(detectWhoisRefusal(text)).toBe("rate_limited");
   });

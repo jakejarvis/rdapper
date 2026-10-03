@@ -11,6 +11,8 @@ const THROTTLE_PATTERNS: RegExp[] = [
   /quota\s+exceeded/i,
   /exceeded\s+.{0,40}(quer|limit|request|connection)/i,
   /too\s+many\s+(quer|request|connection)/i,
+  /queried interval is too short/i, // CNNIC
+  /access control limit/i, // DENIC: "Connection refused; access control limit reached"
   /^\s*<(!doctype|html)\b/i,
 ];
 
