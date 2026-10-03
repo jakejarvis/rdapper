@@ -344,10 +344,18 @@ test("WHOIS .tw TWNIC 'Record ... on' sentence dates", () => {
     "   Domain servers in listed order:",
     "      dns1.twnic.net.tw     210.65.47.29 ",
     "",
+    "Registration Service Provider: TWNIC",
+    "Registration Service URL: https://rs.twnic.tw/",
+    "Registrar Abuse Contact Email: abuse@twnic.tw",
   ].join("\n");
   const rec = normalizeWhois("twnic.net.tw", "net.tw", text, "whois.twnic.net.tw");
   expect(rec.creationDate).toBe("2000-02-02T07:06:48Z");
   expect(rec.expirationDate).toBe("2099-12-31T15:59:59Z");
+  expect(rec.registrar).toMatchObject({
+    name: "TWNIC",
+    url: "https://rs.twnic.tw/",
+    email: "abuse@twnic.tw",
+  });
 });
 
 test("WHOIS header-style date whose value follows a blank line still parses", () => {

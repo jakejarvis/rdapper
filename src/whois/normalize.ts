@@ -133,6 +133,7 @@ export function normalizeWhois(
       "sponsoring registrar",
       "organisation",
       "record maintained by",
+      "registration service provider", // .tw
     ]);
     const ianaId = anyValue(map, ["registrar iana id", "sponsoring registrar iana id", "iana id"]);
     const url = anyValue(map, [
@@ -140,6 +141,7 @@ export function normalizeWhois(
       "registrar website",
       "registrar web", // .it
       "url of the registrar",
+      "registration service url", // .tw
       "referrer",
     ]);
     const abuseEmail = anyValue(map, ["registrar abuse contact email", "abuse contact email"]);
