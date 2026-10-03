@@ -364,3 +364,23 @@ test("WHOIS header-style date whose value follows a blank line still parses", ()
     "2020-01-02T03:04:05Z",
   );
 });
+
+test("WHOIS statuses are EPP codes, including spelled-out ones", () => {
+  const text = `
+Domain Name: example.test
+Domain Status: clientTransferProhibited https://icann.org/epp#clientTransferProhibited
+Domain Status: client update prohibited (https://icann.org/epp#clientUpdateProhibited)
+Domain Status: ACTIVE
+Domain Status: OK-UNTIL 20261004161638
+`;
+  const rec = normalizeWhois("example.test", "test", text, undefined);
+  expect(rec.statuses?.map((s) => s.status)).toEqual([
+    "clientTransferProhibited",
+    "clientUpdateProhibited",
+    "ok",
+    "OK-UNTIL",
+  ]);
+  expect(rec.statuses?.[1]?.raw).toBe(
+    "client update prohibited (https://icann.org/epp#clientUpdateProhibited)",
+  );
+});

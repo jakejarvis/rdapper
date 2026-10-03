@@ -157,11 +157,14 @@ export interface Nameserver {
  * @see {@link https://www.icann.org/resources/pages/epp-status-codes-2014-06-16-en ICANN EPP Status Codes}
  */
 export interface StatusEvent {
-  /** Status code (e.g., "clientTransferProhibited") */
+  /**
+   * EPP status code, for RDAP and WHOIS alike (e.g., "clientTransferProhibited"; RDAP "active"
+   * is "ok"), or the registry's own status when it has no EPP equivalent
+   */
   status: string;
   /** Human-readable description of the status, if available */
   description?: string;
-  /** Original raw status string from the source */
+  /** Original raw status string from the source (e.g., RDAP "client transfer prohibited") */
   raw?: string;
 }
 

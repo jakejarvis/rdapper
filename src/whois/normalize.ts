@@ -1,5 +1,6 @@
 import { toISOFromTokens } from "../lib/dates";
 import { finalizeContact, isPrivacyContact } from "../lib/contacts";
+import { isEppStatus, normalizeEppStatus } from "../lib/status";
 import { parseKeyValueBlocks, parseKeyValueLines, uniq } from "../lib/text";
 import type { Contact, DomainRecord, Nameserver, RegistrarInfo } from "../types";
 
@@ -170,10 +171,14 @@ export function normalizeWhois(
     map["registration status"] ||
     map.eppstatus || // .fr
     [];
+  // Report EPP codes, as RDAP does; a status may be spelled out ("client transfer prohibited")
   const statuses = statusLines.length
     ? statusLines
         .map((line) => {
-          const status = line.split(/\s+/)[0];
+          const phrase = line.replace(/\s*(?:\(?https?:\/\/\S*\)?|\(.*\)).*$/, "");
+          const status = normalizeEppStatus(
+            isEppStatus(phrase) ? phrase : (line.split(/\s+/)[0] ?? ""),
+          );
           return status ? { status, raw: line } : null;
         })
         .filter((s): s is { status: string; raw: string } => s !== null)

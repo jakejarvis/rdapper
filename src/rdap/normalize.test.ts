@@ -435,3 +435,21 @@ test("normalizeRdap prefers the registrar's own email over its abuse contact", (
   expect(rec.registrar?.email).toBe("support@registrar.test");
   expect(rec.registrar?.phone).toBe("+1.5555550100");
 });
+
+test("normalizeRdap reports EPP status codes and keeps the RDAP spelling in raw", () => {
+  const rec = normalizeRdap(
+    "example.com",
+    "com",
+    {
+      ldhName: "example.com",
+      // A merged registry + registrar document can repeat a status in another spelling
+      status: ["client transfer prohibited", "active", "clientTransferProhibited", "locked"],
+    },
+    [],
+  );
+  expect(rec.statuses).toEqual([
+    { status: "clientTransferProhibited", raw: "client transfer prohibited" },
+    { status: "ok", raw: "active" },
+    { status: "locked", raw: "locked" },
+  ]);
+});

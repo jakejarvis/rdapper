@@ -66,6 +66,8 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
   - Cleans a contact: drops placeholder values (recording them in `redactedFields`), sets `privacyService`, resolves `country`/`countryCode`, and sets `redacted`. Safe to re-run on an already-cleaned contact, e.g. to upgrade contacts stored by an older version.
 - `isPrivacyContact(contact) => boolean`
   - True when the contact's name/organization is a privacy service or was redacted.
+- `normalizeEppStatus(status) => string`
+  - Maps a status in either spelling to its EPP code (`"client transfer prohibited"` → `"clientTransferProhibited"`, RDAP `"active"` → `"ok"`), leaving other values as they are. Useful for upgrading statuses stored by an older version.
 
 ### CLI
 
@@ -521,9 +523,9 @@ interface DomainRecord {
   };
   reseller?: string;
   statuses?: Array<{
-    status: string;
+    status: string; // EPP code from either source (e.g., "clientTransferProhibited", "ok")
     description?: string;
-    raw?: string;
+    raw?: string; // as the source wrote it (e.g., RDAP "client transfer prohibited")
   }>;
   creationDate?: string; // ISO 8601 (UTC)
   updatedDate?: string; // ISO 8601 (UTC)

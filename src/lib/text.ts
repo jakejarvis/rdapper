@@ -3,6 +3,19 @@ export function uniq<T>(arr: T[] | undefined | null): T[] | undefined {
   return Array.from(new Set(arr));
 }
 
+/** Drop items whose key was already seen, keeping the first. */
+export function uniqBy<T>(arr: T[], key: (t: T) => string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of arr) {
+    const k = key(item);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(item);
+  }
+  return out;
+}
+
 export function parseKeyValueLines(text: string): Record<string, string[]> {
   const map = new Map<string, string[]>();
   const lines = text.split(/\r?\n/);

@@ -240,4 +240,5 @@ export { getDomainParts, getDomainTld, isLikelyDomain, toRegistrableDomain } fro
 export { finalizeContact, isPrivacyContact } from "./lib/contacts";
 export { resolveCountry } from "./lib/countries";
 export { isPlaceholderValue, isPrivacyName } from "./lib/privacy";
+export { normalizeEppStatus } from "./lib/status";
 export type * from "./types";

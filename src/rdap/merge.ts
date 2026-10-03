@@ -1,6 +1,7 @@
 import { resolveTimeoutMs, throwIfAborted, withTimeout } from "../lib/async";
 import { RdapperError } from "../lib/errors";
 import { resolveFetch } from "../lib/fetch";
+import { uniqBy } from "../lib/text";
 import { type LookupContext, traced } from "../lib/trace";
 import type { LookupOptions } from "../types";
 import { extractRdapRelatedLinks } from "./links";
@@ -149,17 +150,6 @@ function toStringArray(val: unknown): string[] {
 }
 function uniqStrings(arr: string[]): string[] {
   return Array.from(new Set(arr));
-}
-function uniqBy<T>(arr: T[], key: (t: T) => string): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const item of arr) {
-    const k = key(item);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(item);
-  }
-  return out;
 }
 function sameDomain(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();

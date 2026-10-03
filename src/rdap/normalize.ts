@@ -1,7 +1,8 @@
 import { resolveCountry } from "../lib/countries";
 import { finalizeContact, isPrivacyContact, redactionFields } from "../lib/contacts";
 import { toISO } from "../lib/dates";
-import { asDateLike, asString, asStringArray, uniq } from "../lib/text";
+import { normalizeEppStatus } from "../lib/status";
+import { asDateLike, asString, asStringArray, uniq, uniqBy } from "../lib/text";
 import { type ParsedVCard, parseVcard } from "./vcard";
 import type { Contact, DomainRecord, Nameserver, Redaction, RegistrarInfo } from "../types";
 
@@ -55,11 +56,16 @@ export function normalizeRdap(
     isPrivacyContact(registrant) ||
     !!redactions?.some((r) => redactionTargetsRole(r, "registrant"));
 
-  // RDAP uses IANA EPP status values. Preserve raw plus a description if any remarks are present.
+  // RDAP spells EPP statuses as words ("client transfer prohibited"): report the EPP code, as
+  // WHOIS does, and keep the original in raw. Merged registry and registrar documents may list
+  // the same status in different spellings.
   const statuses = Array.isArray(doc.status)
-    ? (doc.status as unknown[])
-        .filter((s): s is string => typeof s === "string")
-        .map((s) => ({ status: s, raw: s }))
+    ? uniqBy(
+        (doc.status as unknown[])
+          .filter((s): s is string => typeof s === "string")
+          .map((s) => ({ status: normalizeEppStatus(s), raw: s })),
+        (s) => s.status.toLowerCase(),
+      )
     : undefined;
 
   // Secure DNS info
