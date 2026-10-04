@@ -1,5 +1,11 @@
 import { expect, test } from "vitest";
-import { getDomainParts, isLikelyDomain, toAsciiDomain, toRegistrableDomain } from "./domain";
+import {
+  getDomainParts,
+  getDomainTld,
+  isLikelyDomain,
+  toAsciiDomain,
+  toRegistrableDomain,
+} from "./domain";
 
 test("getDomainParts.tld basic", () => {
   expect(getDomainParts("example.com").publicSuffix).toBe("com");
@@ -50,4 +56,22 @@ test("toRegistrableDomain honors allowPrivateDomains", () => {
   expect(toRegistrableDomain("www.example.co.uk", { allowPrivateDomains: true })).toBe(
     "example.co.uk",
   );
+});
+
+test("toRegistrableDomain keeps the name under a sub-registry, as lookup() expects", () => {
+  expect(toRegistrableDomain("google.uk.com")).toBe("google.uk.com");
+  expect(toRegistrableDomain("https://www.Google.UK.com/path")).toBe("google.uk.com");
+  expect(toRegistrableDomain("www.google.uk.com.")).toBe("google.uk.com");
+  expect(toRegistrableDomain("foo.nhs.uk")).toBe("foo.nhs.uk");
+  expect(toRegistrableDomain("www.ox.ac.uk")).toBe("ox.ac.uk");
+  // The sub-registry's own domain is an ordinary .com name
+  expect(toRegistrableDomain("uk.com")).toBe("uk.com");
+});
+
+test("getDomainTld reports the sub-registry suffix a name is registered under", () => {
+  expect(getDomainTld("example.co.uk")).toBe("co.uk");
+  expect(getDomainTld("google.uk.com")).toBe("uk.com");
+  expect(getDomainTld("www.google.uk.com")).toBe("uk.com");
+  expect(getDomainTld("uk.com")).toBe("com");
+  expect(getDomainTld("192.168.0.1")).toBeNull();
 });

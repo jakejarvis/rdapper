@@ -377,6 +377,20 @@ test("normalizeRdap resolves registrar countryCode from the country name", () =>
   expect(rec.registrar).toMatchObject({ country: "Canada", countryCode: "CA" });
 });
 
+test("normalizeRdap names the registrar from its handle only when the handle isn't an ID", () => {
+  const registrarNamed = (handle: string) =>
+    normalizeRdap(
+      "example.com",
+      "com",
+      { ldhName: "example.com", entities: [{ roles: ["registrar"], handle }] },
+      [],
+    ).registrar?.name;
+
+  expect(registrarNamed("292")).toBeUndefined();
+  expect(registrarNamed("MMR-1234")).toBeUndefined();
+  expect(registrarNamed("MarkMonitor")).toBe("MarkMonitor");
+});
+
 test("normalizeRdap ties a redaction path to redactedFields", () => {
   const entity = {
     roles: ["registrant"],

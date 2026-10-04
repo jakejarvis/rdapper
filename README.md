@@ -38,6 +38,7 @@ import { toRegistrableDomain } from "rdapper";
 
 toRegistrableDomain("https://sub.example.co.uk/page"); // => "example.co.uk"
 toRegistrableDomain("spark-public.s3.amazonaws.com"); // => "amazonaws.com" (ICANN-only default)
+toRegistrableDomain("www.google.uk.com"); // => "google.uk.com" (CentralNic sub-registry)
 toRegistrableDomain("192.168.0.1"); // => null
 ```
 
@@ -60,13 +61,15 @@ await isAvailable("likely-unregistered-thing-320485230458.com"); // => true
   - `domain` may be Unicode (`münchen.de`) and may carry surrounding whitespace or a trailing dot; the lowercase punycode form is what gets queried.
   - `domain` must be a registrable name (`example.com`, `example.co.uk`), not a subdomain or a bare public suffix: `www.example.com` fails with `invalid_input` naming `example.com`, since the registry would otherwise answer "not registered". Use `toRegistrableDomain` to normalize hostnames and URLs first.
 - `toRegistrableDomain(input, options?) => string | null`
-  - Normalizes a domain or URL to its registrable domain (eTLD+1).
+  - Normalizes a domain or URL to its registrable domain (eTLD+1), the name `lookup()` accepts. A name under a sub-registry keeps its own label (`google.uk.com`, not `uk.com`).
   - Returns the registrable domain string, or `null` for IPs/invalid input; [options](https://github.com/remusao/tldts/blob/master/packages/tldts-core/src/options.ts) are forwarded to `tldts` (e.g., `allowPrivateDomains`).
+- `getDomainTld(domain, options?) => string | null`
+  - The suffix a name is registered under, matching the `tld` a lookup reports: the ICANN public suffix (`co.uk`), or a sub-registry's (`uk.com` for `google.uk.com`).
 - `isRegistered(domain, options?) => Promise<boolean>`
 - `isAvailable(domain, options?) => Promise<boolean>`
   - Reject when the lookup fails, with an `RdapperError` (exported) whose `code`, `phase`, `server`, and `retryAfterMs` mirror the result's `errorCode`, `errorPhase`, `errorServer`, and `retryAfterMs`. An abort keeps the name `"AbortError"`.
 - `finalizeContact(contact, redactedHint?) => Contact`
-  - Cleans a contact: drops placeholder values (recording them in `redactedFields`), sets `privacyService`, resolves `country`/`countryCode`, and sets `redacted`. Safe to re-run on an already-cleaned contact, e.g. to upgrade contacts stored by an older version.
+  - Cleans a contact: drops placeholder values (recording them in `redactedFields`), drops a registry handle (`JJ1234-IS`) given as the name or organization, sets `privacyService`, resolves `country`/`countryCode`, and sets `redacted`. Safe to re-run on an already-cleaned contact, e.g. to upgrade contacts stored by an older version.
 - `isPrivacyContact(contact) => boolean`
   - True when the contact hides who it is: a privacy service is named, or something was withheld and no name or organization is left.
 - `normalizeEppStatus(status) => string`
@@ -441,7 +444,7 @@ const result = await lookup("example.com", {
 - `rdapFollowLinks?: boolean` – Follow related/entity RDAP links to enrich data (default `true`).
 - `maxRdapLinkHops?: number` – Maximum RDAP related link fetches, following links found in fetched documents too (default `2`).
 - `rdapLinkRels?: string[]` – RDAP link rel values to consider (default `["related","entity","registrar","alternate"]`).
-- `customBootstrapData?: BootstrapData` – Pre-loaded RDAP bootstrap data for caching control (see [Bootstrap Data Caching](#bootstrap-data-caching)).
+- `customBootstrapData?: BootstrapData` – Pre-loaded RDAP bootstrap data for caching control (see [Bootstrap Data Caching](#bootstrap-data-caching)). `undefined` or `null` counts as not provided, so a failed cache read can be passed straight through; an object without a `services` array fails the lookup with `invalid_input`.
 - `customBootstrapUrl?: string` – Override RDAP bootstrap URL (ignored if `customBootstrapData` is provided).
 - `customFetch?: FetchLike` – Custom fetch implementation for all HTTP requests (see [Custom Fetch Implementation](#custom-fetch-implementation)).
 - `whoisHints?: Record<string, string>` – Override/add authoritative WHOIS per TLD (keys are lowercase TLDs, values may include or omit `whois://`).
@@ -475,6 +478,8 @@ interface LookupResult {
 `retryAfterMs` carries an RDAP `Retry-After` header (on `429` or `503`, as seconds or an HTTP date). It is set on the matching entry in `attempts`, and on the top-level result only when that RDAP attempt is the terminal failure, as with `rdapOnly`. Normally an RDAP failure falls through to WHOIS, so the value stays in `attempts`. The value is passed through as sent and is not capped, so clamp it before using it as a delay.
 
 WHOIS referral hosts (from `Registrar WHOIS Server:` and similar fields) come from upstream response text, so they are validated (hostname syntax, no private/loopback/link-local IP literals) and their resolved address is checked at connect time. An unsafe, blocked or throttled referral is skipped with an entry in `record.warnings`. The first WHOIS server, from IANA or `whoisHints`, is trusted and not checked.
+
+RDAP links (`related` and the other `rdapLinkRels`) come from upstream responses too, so a link is only followed when it is `http(s)` to a public hostname or IP literal, without credentials. This is a literal check: a hostname that resolves to a private address, or a redirect to one, still gets through, so pass a `customFetch` that checks resolved addresses when lookups take untrusted input. The RDAP servers from the IANA bootstrap (or `customBootstrapData`) are trusted.
 
 Each entry in `attempts` describes one operation, successful or not, so a failure that was recovered from (say, an RDAP server that was down before WHOIS answered) is still visible:
 
@@ -663,7 +668,7 @@ Project layout:
 - Some TLDs provide no RDAP service; `rdapOnly: true` will fail for them.
 - Registries may throttle or block WHOIS; respect rate limits and usage policies.
 - Field presence depends on source and privacy policies (e.g., redaction/withholding).
-- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). You can pass options through to `tldts` via `toRegistrableDomain`/`getDomainParts`/`getDomainTld` (e.g., `allowPrivateDomains`) to customize behavior. `lookup()` additionally routes names under CentralNic’s sub-registries (e.g., `google.uk.com`) to CentralNic rather than the `.com` registry. See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
+- Public suffix detection uses `tldts` with ICANN‑only defaults (Private section is ignored). You can pass options through to `tldts` via `toRegistrableDomain`/`getDomainParts`/`getDomainTld` (e.g., `allowPrivateDomains`) to customize behavior. `lookup()` additionally routes names under CentralNic’s sub-registries (e.g., `google.uk.com`) to CentralNic rather than the `.com` registry, and `toRegistrableDomain`/`getDomainTld` treat those names the same way. See: [tldts migration notes](https://github.com/remusao/tldts#migrating-from-other-libraries).
 
 ## License
 

@@ -1,5 +1,6 @@
 import type { Contact, ContactField } from "../types";
 import { countryCodeFromName, resolveCountry } from "./countries";
+import { isRegistryHandle } from "./handles";
 import { isPlaceholderValue, isPrivacyName } from "./privacy";
 
 function cleanValue(
@@ -96,8 +97,9 @@ export function redactionFields(name: string, prePath?: string): ContactField[] 
 
 /**
  * Post-process a parsed contact: drop placeholder values from every field (recording each in
- * `redactedFields`), flag privacy-service names (`privacyService`), resolve country/countryCode,
- * and set `redacted` when any redaction signal is present.
+ * `redactedFields`), drop a registry handle given as the name or organization, flag
+ * privacy-service names (`privacyService`), resolve country/countryCode, and set `redacted` when
+ * any redaction signal is present.
  *
  * `redactedHint` lets callers pass format-specific signals (e.g. RFC 9537 entries): `true` when
  * something was redacted but the fields are unknown, or the list of fields known to be redacted.
@@ -124,6 +126,13 @@ export function finalizeContact(
     const { value, dropped } = cleanValue(record[key]);
     record[key] = value;
     if (dropped) redacted = true;
+  }
+
+  // A registry handle ("JJ1234-IS") in place of a name identifies no one. It isn't a redaction
+  // either: the registry published a reference, not a withheld value.
+  for (const key of ["name", "organization"] as const) {
+    const value = contact[key];
+    if (value && isRegistryHandle(value)) contact[key] = undefined;
   }
 
   // Remaining name/organization text that names a privacy service is kept, since it is useful to show.

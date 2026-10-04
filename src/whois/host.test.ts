@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { isSafeWhoisReferralHost } from "./host";
+import { isSafePublicHost } from "./host";
 
-describe("isSafeWhoisReferralHost", () => {
+describe("isSafePublicHost", () => {
   it.each([
     "whois.markmonitor.com",
     "whois.1api.net",
@@ -11,7 +11,7 @@ describe("isSafeWhoisReferralHost", () => {
     "2606:4700:4700::1111",
     "::ffff:808:808",
     "whois.example.com.",
-  ])("accepts %s", (h) => expect(isSafeWhoisReferralHost(h)).toBe(true));
+  ])("accepts %s", (h) => expect(isSafePublicHost(h)).toBe(true));
 
   it.each([
     "",
@@ -49,5 +49,5 @@ describe("isSafeWhoisReferralHost", () => {
     "-bad.example.com",
     `${"a".repeat(64)}.example.com`,
     `${"a.".repeat(130)}com`,
-  ])("rejects %j", (h) => expect(isSafeWhoisReferralHost(h)).toBe(false));
+  ])("rejects %j", (h) => expect(isSafePublicHost(h)).toBe(false));
 });

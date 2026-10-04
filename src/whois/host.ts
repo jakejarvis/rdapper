@@ -93,11 +93,11 @@ export function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * Whether a WHOIS referral host taken from upstream response text is safe to connect to:
- * a well-formed public hostname or public IP literal, with no port, path or userinfo.
- * This is a literal check only; the resolved address is checked again at connect time.
+ * Whether a host taken from upstream response data (a WHOIS referral, an RDAP link) is safe to
+ * connect to: a well-formed public hostname or public IP literal, with no port, path or userinfo.
+ * This is a literal check only; WHOIS checks the resolved address again at connect time.
  */
-export function isSafeWhoisReferralHost(host: string): boolean {
+export function isSafePublicHost(host: string): boolean {
   const value = host.trim().replace(/\.$/, "");
   if (!value || value.length > 253) return false;
 

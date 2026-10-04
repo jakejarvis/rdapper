@@ -120,4 +120,31 @@ describe("fetchAndMergeRdapRelated", () => {
     expect(customFetch).not.toHaveBeenCalled();
     expect(serversTried).toEqual([]);
   });
+
+  it("doesn't follow links to private, local, or credentialed hosts", async () => {
+    const base = {
+      ldhName: "example.com",
+      links: [
+        related("http://169.254.169.254/latest/meta-data/"),
+        related("http://127.1/domain/example.com"),
+        related("http://[::1]:8080/domain/example.com"),
+        related("https://localhost/domain/example.com"),
+        related("https://rdap.internal/domain/example.com"),
+        related("https://user:pass@rdap.registrar.test/domain/example.com"),
+        related("ftp://rdap.registrar.test/domain/example.com"),
+        related("https://rdap.registrar.test:8443/domain/example.com"),
+      ],
+    };
+    const customFetch = serve({});
+    const { serversTried } = await fetchAndMergeRdapRelated("example.com", base, {
+      customFetch,
+      maxRdapLinkHops: 10,
+    });
+    // Only the public host is fetched (a port is fine)
+    expect(customFetch).toHaveBeenCalledTimes(1);
+    expect(customFetch.mock.calls[0]?.[0]).toBe(
+      "https://rdap.registrar.test:8443/domain/example.com",
+    );
+    expect(serversTried).toEqual([]);
+  });
 });

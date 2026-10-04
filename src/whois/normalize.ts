@@ -1,5 +1,6 @@
 import { type ParseDateOptions, toISOFromTokens } from "../lib/dates";
 import { finalizeContact, isPrivacyContact } from "../lib/contacts";
+import { looksLikeHandle } from "../lib/handles";
 import { mergeNameservers } from "../lib/nameservers";
 import { isEppStatus, normalizeEppStatus } from "../lib/status";
 import { parseKeyValueBlocks, parseKeyValueLines, uniqBy } from "../lib/text";
@@ -524,12 +525,6 @@ function collectContacts(map: Record<string, string[]>): Contact[] | undefined {
     }
   }
   return contacts.length ? contacts : undefined;
-}
-
-/** A single token with a digit, or an uppercase hyphenated code: a registry handle. */
-function looksLikeHandle(value: string): boolean {
-  const v = value.trim();
-  return !/\s/.test(v) && (/\d/.test(v) || /^[A-Z]+(?:-[A-Z]+)+$/.test(v));
 }
 
 function multi(map: Record<string, string[]>, keys: string[]): string[] | undefined {

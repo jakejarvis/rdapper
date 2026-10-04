@@ -11,7 +11,7 @@ import type { BootstrapData, LookupOptions } from "../types";
  * recorded in `ctx.attempts` and the caller falls back to WHOIS).
  *
  * Bootstrap data is resolved in the following priority order:
- * 1. `options.customBootstrapData` - pre-loaded bootstrap data (no fetch)
+ * 1. `options.customBootstrapData` - pre-loaded bootstrap data (no fetch), unless undefined/null
  * 2. `options.customBootstrapUrl` - custom URL to fetch bootstrap data from
  * 3. Default IANA URL - https://data.iana.org/rdap/dns.json
  */
@@ -21,32 +21,24 @@ async function loadBootstrapData(
 ): Promise<BootstrapData | undefined> {
   let data: BootstrapData;
 
-  // Priority 1: Use pre-loaded bootstrap data if provided (no fetch)
-  if (options && "customBootstrapData" in options) {
-    const provided = options.customBootstrapData;
-    // Validate the structure to provide helpful error messages
-    if (!provided || typeof provided !== "object") {
-      throw new Error(
+  // Priority 1: Use pre-loaded bootstrap data if provided (no fetch). `undefined`/`null` count as
+  // not provided, so a caller whose own fetch failed can pass its result straight through.
+  const provided = options?.customBootstrapData;
+  if (provided != null) {
+    // A wrong shape is the caller's bug, not a missing server: fail as invalid_input instead of
+    // quietly falling back. Malformed service entries are only skipped (see matchBases).
+    if (typeof provided !== "object") {
+      throw new RdapperError(
+        "invalid_input",
         "Invalid customBootstrapData: expected an object. See BootstrapData type for required structure.",
       );
     }
     if (!Array.isArray(provided.services)) {
-      throw new Error(
+      throw new RdapperError(
+        "invalid_input",
         'Invalid customBootstrapData: missing or invalid "services" array. See BootstrapData type for required structure.',
       );
     }
-    provided.services.forEach((svc, idx) => {
-      if (
-        !Array.isArray(svc) ||
-        svc.length < 2 ||
-        !Array.isArray(svc[0]) ||
-        !Array.isArray(svc[1])
-      ) {
-        throw new Error(
-          `Invalid customBootstrapData: services[${idx}] must be a tuple of [string[], string[]].`,
-        );
-      }
-    });
     data = provided;
   } else {
     // Priority 2 & 3: Fetch from custom URL or default IANA URL
@@ -93,9 +85,10 @@ function matchBases(data: BootstrapData, tld: string): string[] {
   const target = tld.toLowerCase();
   const bases: string[] = [];
   for (const svc of data.services) {
-    if (!svc[0] || !svc[1]) continue;
-    const tlds = svc[0].map((x) => x.toLowerCase());
-    const urls = svc[1];
+    // Skip an entry that isn't a [string[], string[]] tuple rather than failing the lookup
+    if (!Array.isArray(svc) || !Array.isArray(svc[0]) || !Array.isArray(svc[1])) continue;
+    const tlds = svc[0].filter((x) => typeof x === "string").map((x) => x.toLowerCase());
+    const urls = svc[1].filter((u) => typeof u === "string");
     // Match exact TLD, and also support multi-label public suffixes present in IANA (rare)
     if (tlds.includes(target)) {
       for (const u of urls) {

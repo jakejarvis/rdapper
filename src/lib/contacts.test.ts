@@ -29,6 +29,24 @@ test("finalizeContact keeps privacy-service names and flags privacyService", () 
   expect(c.redactedFields).toBeUndefined();
 });
 
+test("finalizeContact drops a registry handle given as the name, without calling it redacted", () => {
+  const c = finalizeContact({
+    type: "registrant",
+    name: "JJ1234-IS",
+    organization: "AB1-NORID",
+    country: "IS",
+  });
+  expect(c.name).toBeUndefined();
+  expect(c.organization).toBeUndefined();
+  expect(c.countryCode).toBe("IS");
+  expect(c.redacted).toBeUndefined();
+  expect(c.redactedFields).toBeUndefined();
+  expect(isPrivacyContact(c)).toBe(false);
+
+  // A name that only resembles a handle stays
+  expect(finalizeContact({ type: "registrant", organization: "3M" }).organization).toBe("3M");
+});
+
 test("finalizeContact cleans address fields and leaves real contacts untouched", () => {
   const c = finalizeContact({
     type: "admin",

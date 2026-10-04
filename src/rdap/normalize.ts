@@ -1,6 +1,7 @@
 import { resolveCountry } from "../lib/countries";
 import { finalizeContact, isPrivacyContact, mergeContacts, redactionFields } from "../lib/contacts";
 import { toISO } from "../lib/dates";
+import { looksLikeHandle } from "../lib/handles";
 import { mergeNameservers } from "../lib/nameservers";
 import { normalizeEppStatus } from "../lib/status";
 import { asDateLike, asString, asStringArray, uniqBy } from "../lib/text";
@@ -248,8 +249,11 @@ function registrarInfo(ent: unknown): RegistrarInfo {
         /iana\s*registrar\s*id/i.test(String(id?.type)),
       )?.identifier
     : undefined;
+  // Some registrars publish their name only as the entity handle, but most handles are IDs
+  // ("292", "MMR-1234"), which would pass for a registrar called "292"
+  const handle = asString((ent as RdapDoc)?.handle);
   return {
-    name: v.fn || v.org || asString((ent as RdapDoc)?.handle) || undefined,
+    name: v.fn || v.org || (handle && !looksLikeHandle(handle) ? handle : undefined),
     ianaId: asString(ianaId),
     url: v.url ?? undefined,
     email: v.email?.[0],

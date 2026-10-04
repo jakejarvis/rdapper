@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { RdapperError } from "../lib/errors";
 import type { BootstrapData } from "../types";
 import { getRdapBaseUrlsForPublicSuffix, getRdapBaseUrlsForTld } from "./bootstrap";
 
@@ -150,26 +151,53 @@ describe("getRdapBaseUrlsForTld with customBootstrapData", () => {
     });
   });
 
+  describe("customBootstrapData set to undefined or null", () => {
+    it.each([undefined, null])(
+      "fetches the bootstrap as if it were omitted (%s)",
+      async (value) => {
+        vi.mocked(fetch).mockResolvedValue({
+          ok: true,
+          json: async () => validBootstrapData,
+        } as Response);
+
+        const urls = await getRdapBaseUrlsForTld("com", {
+          customBootstrapData: value as unknown as BootstrapData,
+        });
+
+        expect(urls).toEqual(["https://rdap.verisign.com/com/v1/"]);
+        expect(fetch).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
   describe("invalid customBootstrapData validation", () => {
-    it("should throw when customBootstrapData is null", async () => {
-      await expect(
-        getRdapBaseUrlsForTld("com", {
-          customBootstrapData: null as unknown as BootstrapData,
-        }),
-      ).rejects.toThrow(
-        "Invalid customBootstrapData: expected an object. See BootstrapData type for required structure.",
-      );
-      expect(fetch).not.toHaveBeenCalled();
+    it("rejects with an invalid_input RdapperError", async () => {
+      const err = await getRdapBaseUrlsForTld("com", {
+        customBootstrapData: "invalid" as unknown as BootstrapData,
+      }).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(RdapperError);
+      expect(err).toMatchObject({ code: "invalid_input" });
     });
 
-    it("should throw when customBootstrapData is undefined", async () => {
-      await expect(
-        getRdapBaseUrlsForTld("com", {
-          customBootstrapData: undefined as unknown as BootstrapData,
-        }),
-      ).rejects.toThrow(
-        "Invalid customBootstrapData: expected an object. See BootstrapData type for required structure.",
-      );
+    it("skips malformed service entries instead of rejecting", async () => {
+      const urls = await getRdapBaseUrlsForTld("com", {
+        customBootstrapData: {
+          version: "1.0",
+          publication: "2025-01-15T12:00:00Z",
+          services: [
+            "garbage",
+            [["com"]],
+            [["com"], "https://not-a-list.example/"],
+            [
+              ["com", 42],
+              ["https://rdap.verisign.com/com/v1/", null],
+            ],
+          ],
+        } as unknown as BootstrapData,
+      });
+
+      expect(urls).toEqual(["https://rdap.verisign.com/com/v1/"]);
       expect(fetch).not.toHaveBeenCalled();
     });
 

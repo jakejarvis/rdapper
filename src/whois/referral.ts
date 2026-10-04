@@ -5,7 +5,7 @@ import type { LookupOptions } from "../types";
 import type { WhoisQueryResult } from "./client";
 import { whoisQuery } from "./client";
 import { extractWhoisReferral } from "./discovery";
-import { isSafeWhoisReferralHost } from "./host";
+import { isSafePublicHost } from "./host";
 import { isAvailableByWhois, normalizeWhois } from "./normalize";
 import { detectWhoisRefusal, looksEmptyWhois } from "./throttle";
 
@@ -35,7 +35,7 @@ export async function collectWhoisReferralChain(
     const next = extractWhoisReferral(current.text);
     if (!next) break;
     const normalized = normalize(next);
-    if (!isSafeWhoisReferralHost(normalized)) {
+    if (!isSafePublicHost(normalized)) {
       warnings.push(`Skipped WHOIS referral to unsafe host "${next.slice(0, 100)}"`);
       break;
     }

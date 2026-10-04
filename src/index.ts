@@ -1,7 +1,12 @@
 import { linkSignals, throwIfAborted } from "./lib/async";
-import { getDomainParts, isLikelyDomain, toAsciiDomain } from "./lib/domain";
+import {
+  getDomainParts,
+  getDomainTld,
+  isLikelyDomain,
+  toAsciiDomain,
+  toRegistrableDomain,
+} from "./lib/domain";
 import { classifyError, RdapperError } from "./lib/errors";
-import { getSubRegistrySuffix } from "./lib/subregistries";
 import { attemptForError, type LookupContext } from "./lib/trace";
 import { getRdapBaseUrlsForPublicSuffix } from "./rdap/bootstrap";
 import { fetchRdapDomain } from "./rdap/client";
@@ -26,14 +31,7 @@ import { collectWhoisReferralChain } from "./whois/referral";
  * from the Public Suffix List the input is taken as is.
  */
 function registrableNameOf(domain: string): string | undefined {
-  const sub = getSubRegistrySuffix(domain);
-  if (sub)
-    return domain
-      .split(".")
-      .slice(-(sub.split(".").length + 1))
-      .join(".");
-  const parts = getDomainParts(domain);
-  return parts.isIcann ? (parts.domain ?? undefined) : domain;
+  return toRegistrableDomain(domain) ?? (getDomainParts(domain).isIcann ? undefined : domain);
 }
 
 function failure(
@@ -129,7 +127,7 @@ async function runLookup(
   }
 
   // Names under a sub-registry (e.g. google.uk.com) are routed by that suffix, not the ICANN one
-  const tld = getSubRegistrySuffix(domain) ?? getDomainParts(domain).publicSuffix;
+  const tld = getDomainTld(domain);
   if (!tld) {
     return failure(ctx, "invalid_tld", "Invalid TLD");
   }
