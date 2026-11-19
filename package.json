@@ -52,7 +52,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "tldts": "~7.4.13"
+    "tldts": "~7.5.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
